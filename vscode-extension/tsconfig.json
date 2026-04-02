@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "outDir": "out",
+    "rootDir": ".",
+    "strict": true,
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "types": ["node", "vscode"]
+  },
+  "include": [
+    "src/bridge/promptBridgeController.ts",
+    "src/cli/**/*.ts",
+    "src/codex/**/*.ts",
+    "src/commands/**/*.ts",
+    "src/config.ts",
+    "src/extension.ts",
+    "src/helper/**/*.ts",
+    "src/relay/**/*.ts",
+    "src/server/**/*.ts",
+    "src/state/appState.ts",
+    "src/types/**/*.ts",
+    "src/utils/**/*.ts",
+    "src/web/**/*.ts"
+  ]
+}

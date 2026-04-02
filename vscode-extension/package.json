@@ -1,0 +1,250 @@
+{
+  "name": "prompt-bridge",
+  "displayName": "Prompt Bridge",
+  "description": "将手机浏览器中的 prompt 安全桥接到 VS Code Codex 侧边栏。",
+  "version": "0.3.0",
+  "publisher": "local",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://example.invalid/local/prompt-bridge"
+  },
+  "engines": {
+    "vscode": "^1.89.0"
+  },
+  "extensionKind": [
+    "ui"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "promptBridge.startServer",
+        "title": "PromptBridge: Start Server"
+      },
+      {
+        "command": "promptBridge.stopServer",
+        "title": "PromptBridge: Stop Server"
+      },
+      {
+        "command": "promptBridge.showAccessInfo",
+        "title": "PromptBridge: Show Access Info"
+      },
+      {
+        "command": "promptBridge.openCodexSidebar",
+        "title": "PromptBridge: Open Codex Sidebar"
+      },
+      {
+        "command": "promptBridge.sendLastPrompt",
+        "title": "PromptBridge: Send Last Prompt"
+      },
+      {
+        "command": "promptBridge.configureHelperPath",
+        "title": "PromptBridge: Configure Helper Path"
+      },
+      {
+        "command": "promptBridge.configureRelayConnection",
+        "title": "PromptBridge: Configure Relay Connection"
+      },
+      {
+        "command": "promptBridge.connectRelayAgent",
+        "title": "PromptBridge: Connect Relay Agent"
+      },
+      {
+        "command": "promptBridge.disconnectRelayAgent",
+        "title": "PromptBridge: Disconnect Relay Agent"
+      },
+      {
+        "command": "promptBridge.showRelayAgentStatus",
+        "title": "PromptBridge: Show Relay Agent Status"
+      },
+      {
+        "command": "promptBridge.calibrateInputPosition",
+        "title": "PromptBridge: Calibrate Input Position"
+      },
+      {
+        "command": "promptBridge.regenerateAccessToken",
+        "title": "PromptBridge: Regenerate Access Token"
+      }
+    ],
+    "configuration": {
+      "title": "Prompt Bridge",
+      "properties": {
+        "promptBridge.server.host": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "Prompt Bridge 本地服务绑定地址。默认绑定 0.0.0.0 以便手机从局域网访问。"
+        },
+        "promptBridge.server.publicBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "手机实际访问的公网基地址。配置后，复制链接、二维码和访问面板将默认优先展示该地址，例如 https://bridge.example.com。"
+        },
+        "promptBridge.server.port": {
+          "type": "number",
+          "default": 8765,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Prompt Bridge 本地服务端口。"
+        },
+        "promptBridge.security.sessionTtlMinutes": {
+          "type": "number",
+          "default": 15,
+          "minimum": 1,
+          "description": "访问链接与 PIN 的有效时长（分钟）。"
+        },
+        "promptBridge.security.loginTtlMinutes": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "description": "手机登录态有效时长（分钟）。"
+        },
+        "promptBridge.security.pinLength": {
+          "type": "number",
+          "default": 6,
+          "enum": [
+            6,
+            8
+          ],
+          "description": "一次性 PIN 长度。"
+        },
+        "promptBridge.security.maxFailedAttempts": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "description": "PIN 连续输错多少次后触发临时锁定。"
+        },
+        "promptBridge.security.lockoutSeconds": {
+          "type": "number",
+          "default": 120,
+          "minimum": 10,
+          "description": "PIN 输错后临时锁定时长（秒）。"
+        },
+        "promptBridge.helper.host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "本地 Python Helper 的监听地址。"
+        },
+        "promptBridge.helper.port": {
+          "type": "number",
+          "default": 8766,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "本地 Python Helper 的监听端口。"
+        },
+        "promptBridge.helper.requestTimeoutMs": {
+          "type": "number",
+          "default": 8000,
+          "minimum": 1000,
+          "description": "插件请求 Helper 的超时时间（毫秒）。"
+        },
+        "promptBridge.helper.startupTimeoutMs": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 1000,
+          "description": "扩展自动拉起 Helper 后，等待其变为可访问状态的最长时间（毫秒）。"
+        },
+        "promptBridge.helper.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "当 Helper 不可用时，是否尝试自动拉起。"
+        },
+        "promptBridge.helper.executablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Python Helper 可执行文件路径，例如 .venv/bin/prompt-bridge-helper。"
+        },
+        "promptBridge.codex.extensionHints": {
+          "type": "array",
+          "default": [
+            "openai",
+            "codex"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "用于探测 Codex 扩展的关键词。"
+        },
+        "promptBridge.codex.openCommandCandidates": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "显式指定打开 Codex 侧边栏的公开命令候选列表。"
+        },
+        "promptBridge.codex.newSessionCommand": {
+          "type": "string",
+          "default": "",
+          "description": "可选：新建 Codex 会话的公开命令 ID。"
+        },
+        "promptBridge.codex.createNewSessionBeforeSend": {
+          "type": "boolean",
+          "default": false,
+          "description": "发送 prompt 前是否尝试先新建会话。"
+        },
+        "promptBridge.ui.enableQrCode": {
+          "type": "boolean",
+          "default": true,
+          "description": "展示访问信息时是否生成二维码。"
+        },
+        "promptBridge.relay.connectionTimeoutMs": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 1000,
+          "description": "本地 Relay Agent 连接远端 Relay Server 的超时时间（毫秒）。"
+        },
+        "promptBridge.relay.reconnectDelayMs": {
+          "type": "number",
+          "default": 3000,
+          "minimum": 500,
+          "description": "本地 Relay Agent 断线后的自动重连间隔（毫秒）。"
+        },
+        "promptBridge.relay.agentResponseTimeoutMs": {
+          "type": "number",
+          "default": 15000,
+          "minimum": 1000,
+          "description": "远端 Relay Server 等待本地 Agent 回执的最长时间（毫秒）。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "clean": "rm -rf out",
+    "compile": "tsc -p ./tsconfig.json",
+    "build": "tsc -p ./tsconfig.json",
+    "typecheck": "tsc --noEmit -p ./tsconfig.test.json",
+    "lint": "eslint \"src/bridge/promptBridgeController.ts\" \"src/cli/**/*.ts\" \"src/codex/**/*.ts\" \"src/commands/**/*.ts\" \"src/config.ts\" \"src/extension.ts\" \"src/helper/**/*.ts\" \"src/relay/**/*.ts\" \"src/server/**/*.ts\" \"src/state/appState.ts\" \"src/types/**/*.ts\" \"src/utils/**/*.ts\" \"src/web/**/*.ts\" \"test/**/*.ts\"",
+    "test": "vitest run",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"*.json\" \"*.md\"",
+    "package": "tsc -p ./tsconfig.json && vsce package --no-dependencies",
+    "relay:server": "node ./out/src/cli/relayServer.js",
+    "codex-cli:server": "node ./out/src/cli/codexCliServer.js",
+    "codex-cli:standalone": "bash ./scripts/run-codex-cli-bridge.sh",
+    "codex-cli:both": "bash ./scripts/run-codex-and-bridge.sh"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.72",
+    "@types/qrcode": "^1.5.5",
+    "@types/vscode": "^1.89.0",
+    "@types/ws": "^8.5.14",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^8.10.0",
+    "prettier": "^2.8.8",
+    "typescript": "^5.8.3",
+    "vitest": "^0.34.6",
+    "vsce": "^2.15.0"
+  },
+  "overrides": {
+    "cheerio": "1.0.0-rc.12"
+  }
+}
