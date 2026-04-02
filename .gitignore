@@ -206,19 +206,7 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Prompt Bridge
-vscode-extension/node_modules/
-vscode-extension/out/
-vscode-extension/.vscode-test/
-vscode-extension/.env.local
-vscode-extension/.env.*.local
-vscode-extension/.prompt-bridge/
-vscode-extension/logs/
-vscode-extension/*.log
-vscode-extension/*.pid
-vscode-extension/*.token
-vscode-extension/*.session.json
-*.vsix
-.ruff_cache/
-helper/.pytest_cache/
-helper/src/*.egg-info/
+# chat2ide
+node_modules/
+web/dist/
+npm-debug.log*

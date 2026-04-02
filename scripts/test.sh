@@ -1,20 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "$0")" && pwd)/common.sh"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-bootstrap_all
+cd "${ROOT_DIR}"
 
-(
-  cd "${HELPER_DIR}"
-  "${VENV_DIR}/bin/ruff" check .
-  "${VENV_DIR}/bin/pytest" -q
-)
-
-(
-  cd "${EXTENSION_DIR}"
-  npm_cmd run lint
-  npm_cmd run typecheck
-  npm_cmd run build
-  npm_cmd run test
-)
+node ./node_modules/typescript/bin/tsc --noEmit -p tsconfig.server.json
+node ./node_modules/typescript/bin/tsc --noEmit -p web/tsconfig.json
+node ./node_modules/typescript/bin/tsc -p tsconfig.server.json
+node ./node_modules/vite/bin/vite.js build

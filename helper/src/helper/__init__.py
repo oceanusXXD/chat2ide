@@ -1,1 +1,0 @@
-"""Prompt Bridge Python Helper。"""

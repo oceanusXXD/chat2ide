@@ -1,316 +1,100 @@
-# 人工验收方案
+# 手工验收
 
-本文档分成三条验收路径：
+目标：确认系统满足 `Remote Codex CLI Terminal Hub` 的最低可用闭环。
 
-1. `本地模式`
-2. `Relay 模式（Remote-SSH / 服务器）`
-3. `CLI 模式（纯 SSH / 服务器）`
+## 0. 预设条件
 
-如果你的日常使用方式是“本机 VS Code 连接 SSH 服务器”，请先判断你真正需要哪条链路：
+- 服务端已经启动
+- 已配置 `APP_PIN`
+- 已配置 `CODEX_COMMAND`
+- 如果验收公网访问，Cloudflare Tunnel 已经通
 
-1. 必须发进 `VS Code 侧边栏 Codex`
-   按 `Relay 模式` 验收
-2. 只需要把 prompt 发给 `服务器上的 Codex CLI`
-   按 `CLI 模式` 验收
+## 1. 登录
 
-## 通用前置条件
+1. 打开页面
+2. 确认先看到 PIN 登录页
+3. 输入错误 PIN
+4. 确认返回模糊错误，不泄露内部细节
+5. 输入正确 PIN
+6. 确认进入主页面
 
-- 服务器和手机之间网络可达
-- 已执行 `./scripts/bootstrap.sh`
-- 若验收 `本地模式` 或 `Relay 模式`：
-  - 需要 Linux/X11 会话
-  - 需要已安装 `xdotool` 和 `xclip`
-  - 需要已安装 Codex 扩展
-  - 建议先让 Codex 扩展至少启动过一次
+通过标准：
 
-建议同时打开两个观察面板：
+- 必须由服务端校验 PIN
+- 登录后浏览器能维持会话
 
-1. VS Code 的 `Output -> Prompt Bridge`
-2. Helper 或 Relay Server 的终端窗口
+## 2. 新建多个终端
 
-## 一、本地模式验收
+1. 点击 `New Terminal` 两次
+2. 确认出现两个 tabs
+3. 确认每个 tab 都有自己的状态和 PID
 
-### 1. 启动 Helper
+通过标准：
 
-```bash
-cd /home/coder/data/chat2ide
-./scripts/dev.sh helper
-```
+- 两个 terminal 对应两个独立进程
+- tab 切换不互相污染
 
-期望：
+## 3. 输入与流式输出
 
-- 终端输出 Helper 已启动日志
+1. 选中第一个 terminal
+2. 在底部输入栏发送一条命令
+3. 确认命令进入当前 terminal
+4. 确认终端主视图实时流式显示输出
+5. 切换到第二个 terminal，发送另一条命令
+6. 确认输出只对应第二个 terminal
 
-### 2. 启动扩展
+通过标准：
 
-1. 用 VS Code 打开 [vscode-extension](/home/coder/data/chat2ide/vscode-extension)
-2. 按 `F5`
-3. 在新窗口执行：
-   - `PromptBridge: Start Server`
-   - `PromptBridge: Show Access Info`
+- 输出主界面是终端
+- 不是聊天卡片列表
+- 输出顺序不乱
 
-若扩展没有自动发现 Helper，再执行：
+## 4. stop / restart / close
 
-- `PromptBridge: Configure Helper Path`
+1. 对某个 terminal 点击 `Stop`
+2. 确认状态变为 `stopped`
+3. 点击 `Restart`
+4. 确认 terminal 被清空并重新开始
+5. 点击 `Close`
+6. 确认 tab 被移除
 
-### 3. 手机登录
+## 5. 断线重连
 
-1. 手机扫描二维码或直接打开链接
-2. 输入 PIN
+1. 打开一个持续输出中的 terminal
+2. 临时断开网络，或直接刷新页面
+3. 页面恢复后重新登录或自动恢复会话
+4. 确认 terminal 重新 attach
+5. 确认最近输出被 replay
 
-期望：
+通过标准：
 
-- 手机进入 prompt 输入区
-- VS Code `Output -> Prompt Bridge` 出现登录成功日志
+- 不需要重新创建进程
+- 可以继续看到已有 terminal
 
-### 4. 手机发送 prompt
+## 6. Cloudflare Tunnel
 
-1. 输入测试文本
-2. 点击发送
+1. 通过 Cloudflare 域名访问页面
+2. 登录
+3. 新建 terminal
+4. 发送命令
+5. 确认 `/ws` 正常工作
 
-期望：
+通过标准：
 
-- 手机页面显示正在转发或发送成功
-- VS Code `Output -> Prompt Bridge` 依次出现：
-  - 收到 prompt
-  - 尝试打开 Codex
-  - Helper 执行中
-- Codex 输入框收到文本并回车发送
+- 页面可访问
+- WebSocket 正常升级
+- cookie 在 Cloudflare 后仍然有效
 
-### 5. 校准验证
+## 7. 移动端
 
-若发送位置不对：
+1. 用手机浏览器打开页面
+2. 登录
+3. 滚动 tabs
+4. 使用底部输入框发送命令
+5. 点击 `Ctrl+C` / `Stop` / `Restart`
 
-1. 先把鼠标放到 Codex 输入框
-2. 执行 `PromptBridge: Calibrate Input Position`
-3. 重新发送 prompt
+通过标准：
 
-期望：
-
-- VS Code 提示已记录输入位置
-- 再次发送时会先点击该位置
-
-## 二、Relay 模式验收
-
-这是服务器场景的主验收流程。
-
-### 0. 先明确两个 VS Code 窗口的角色
-
-如果你同时开了两个窗口，请按这个规则：
-
-1. `本地普通窗口`
-   只用于安装扩展、看输出、调试，不作为真正发送目标
-2. `Remote-SSH 窗口`
-   这是唯一的发送目标窗口
-
-真正发送前，必须保证：
-
-1. 当前最前面的窗口是目标 `Remote-SSH` 窗口
-2. 不要让本地普通窗口挡在前面
-
-否则 Helper 可能会把 prompt 粘贴到错误窗口。
-
-### 1. 在服务器启动 Relay Server
-
-```bash
-cd /home/coder/data/chat2ide
-./scripts/dev.sh relay-server https://你的公网地址:8765
-```
-
-期望：
-
-- 终端打印：
-  - 手机访问链接
-  - 一次性 PIN
-  - Agent Token
-  - 二维码
-
-### 2. 在本机启动 Helper
-
-```bash
-cd /home/coder/data/chat2ide
-./scripts/dev.sh helper
-```
-
-### 3. 在本机 VS Code 中连接 Relay Agent
-
-重要说明：
-
-- 这里的扩展必须安装在 `本机 UI 侧`
-- 即使当前 VS Code 窗口连的是 `Remote-SSH` 工作区，也仍然要让本机侧扩展运行
-- 推荐直接在目标 `Remote-SSH` 窗口里执行下面这些命令，而不是在本地普通窗口里执行
-
-操作步骤：
-
-1. 在本机 VS Code 的目标窗口里执行 `PromptBridge: Configure Relay Connection`
-2. 输入服务器打印出来的：
-   - Relay Server 地址
-   - Agent Token
-   - Agent 名称
-3. 再执行 `PromptBridge: Connect Relay Agent`
-4. 可执行 `PromptBridge: Show Relay Agent Status` 观察连接状态
-
-期望：
-
-- `Output -> Prompt Bridge` 出现已连接 Relay Server 的日志
-- Relay Server 终端中的 `Agent 已连接` 变为 `是`
-- `Developer: Show Running Extensions` 中，`Prompt Bridge` 应位于 `Local - Running Extensions`
-
-### 4. 手机登录服务器页面
-
-1. 手机扫描二维码或直接打开服务器打印的链接
-2. 输入服务器终端中的 PIN
-
-期望：
-
-- 手机进入 prompt 输入页
-- Relay Server 日志中出现登录成功
-
-### 5. 手机发送 prompt
-
-1. 手机输入测试文本
-2. 点击发送
-
-期望：
-
-- Relay Server 终端显示正在转发到本地 Agent
-- 本机 VS Code `Output -> Prompt Bridge` 显示：
-  - Relay Agent 收到 prompt
-  - 尝试打开 Codex
-  - Helper 调用开始 / 成功
-- 本机 VS Code 的 Codex 输入框收到文本并发送
-- 前台窗口应始终保持为目标 `Remote-SSH` 窗口
-
-### 6. Remote-SSH 工作区确认
-
-若你当前窗口本身就是一个 `Remote-SSH` 工程：
-
-1. 在发送前确认当前活动窗口就是目标 SSH 工作区
-2. 发送后观察 Codex 是否仍以该远端工作区为上下文
-
-期望：
-
-- Codex 的动作仍针对当前远端服务器代码，而不是切回本地工程
-
-## 三、CLI 模式验收
-
-这条路径最适合你当前“服务器才是真正执行环境”的场景。
-
-### 0. 先明确两个 VS Code 的角色
-
-在 `CLI 模式` 下：
-
-1. `本地普通窗口`
-   只是普通编辑器，可开可不开
-2. `Remote-SSH 窗口`
-   也只是普通编辑器，用来查看和编辑服务器代码
-
-这两个窗口都不参与发送链路。
-
-真正的发送链路是：
-
-`手机 -> 服务器 CLI Server -> 服务器上的 Codex CLI`
-
-### 1. 在服务器手工确认 Codex CLI 可用
-
-先在服务器终端手工执行你准备给 CLI Server 使用的命令。例如：
-
-```bash
-cd /你的仓库目录
-codex --help
-```
-
-或你自己的实际非交互调用方式。
-
-期望：
-
-- 命令存在
-- 当前用户有权限执行
-- 工作目录正确
-
-### 2. 启动 CLI Server
-
-最简单示例：
-
-```bash
-cd /home/coder/data/chat2ide
-./scripts/dev.sh cli-server --public-base-url https://你的公网地址:8765 --workdir /你的仓库目录 --exec-command codex
-```
-
-若你的 CLI 需要把 prompt 当参数传入，可改为：
-
-```bash
-cd /home/coder/data/chat2ide
-./scripts/dev.sh cli-server --public-base-url https://你的公网地址:8765 --workdir /你的仓库目录 --exec-command codex --exec-arg run --exec-arg __PROMPT__ --prompt-mode arg
-```
-
-期望：
-
-- 终端打印：
-  - 手机访问链接
-  - 一次性 PIN
-  - 二维码
-  - CLI 命令摘要
-
-### 3. 手机登录
-
-1. 手机扫描二维码或直接打开链接
-2. 输入 PIN
-
-期望：
-
-- 手机进入 prompt 输入页
-- CLI Server 终端出现登录成功日志
-
-### 4. 手机发送 prompt
-
-1. 手机输入测试文本
-2. 点击发送
-
-期望：
-
-- 手机显示发送成功或明确失败
-- CLI Server 终端显示：
-  - 收到 prompt
-  - 启动 CLI
-  - 工作目录
-  - 退出码
-  - stdout / stderr 摘要
-
-### 5. 验证命令确实运行在目标仓库
-
-根据你自己的 Codex CLI 行为确认以下至少一点：
-
-1. 终端日志中的 `workdir` 与预期一致
-2. CLI 输出与该仓库上下文一致
-3. 该目录下产生了符合预期的 CLI 行为结果
-
-## 四、失败时的最小排查顺序
-
-### 本地模式
-
-1. `Output -> Prompt Bridge` 是否已有“本地服务已启动”
-2. 手机是否能打开 `session URL`
-3. PIN 是否仍在有效期内
-4. 是否已经进入 `helper_busy`
-5. Helper 终端是否报 VS Code 窗口、DISPLAY 或剪贴板错误
-
-### Relay 模式
-
-1. Relay Server 终端是否显示 `Agent 已连接: 是`
-2. 本机 `PromptBridge: Show Relay Agent Status` 是否为 `connected`
-3. 手机是否能访问服务器链接
-4. PIN 是否仍有效
-5. 本机 Helper 是否已启动并健康
-6. 发送时本机日志是否至少进入“尝试打开 Codex”
-7. 是否需要先执行输入框校准
-
-### CLI 模式
-
-1. CLI Server 终端是否已经打印访问链接和 PIN
-2. 手机是否能访问该链接
-3. PIN 是否仍有效
-4. `--exec-command` 是否配置正确
-5. `--workdir` 是否指向目标仓库
-6. 该命令能否在服务器终端手工跑通
-7. 是否需要调整 `--prompt-mode` 或 `--timeout-ms`
+- 输入框可用
+- tabs 可横向滚动
+- 终端区域仍保持主要可视空间
