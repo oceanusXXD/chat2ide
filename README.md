@@ -47,7 +47,7 @@ flowchart TB
   end
 
   subgraph Coding["AI coding environment"]
-    CLI["AI coding CLI<br/>Codex / Claude Code / Gemini / Aider / custom"]
+    CLI["AI coding CLI<br/>Codex / Cursor Agent / Qoder / Trae Agent / custom"]
     Repo["Project workspace<br/>CODEX_CWD"]
   end
 
@@ -125,3 +125,19 @@ sequenceDiagram
 | Terminal runtime | node-pty with real PTY sessions |
 | Remote access | Cloudflare Tunnel to a local `127.0.0.1` service |
 | State | In-memory sessions, process handles, and ring buffers |
+
+## AI Coding Tool Support
+
+`chat2ide` can directly host terminal-native agents. GUI-only editors can still work on the same server/project, but `chat2ide` cannot drive their editor UI or proprietary side panels.
+
+| Tool | Direct `CODEX_COMMAND` target? | How to use it |
+| --- | --- | --- |
+| OpenAI Codex CLI | Yes | `CODEX_COMMAND=codex` |
+| Cursor Agent CLI | Yes | Install Cursor CLI on the host, authenticate it, then use `CODEX_COMMAND=cursor-agent` |
+| Qoder CLI | Yes | Install `qodercli`, sign in, then use `CODEX_COMMAND=qodercli` |
+| Trae Agent CLI | Yes, for `trae-agent` | Install ByteDance `trae-agent`; run `trae-cli` tasks from a chat2ide shell or wrap a task command |
+| Windsurf | Not as a standalone PTY agent | Windsurf Cascade is IDE-integrated. Use chat2ide beside Windsurf on the same repo, not as a remote controller for the Windsurf GUI |
+| Trae IDE | Not as a GUI app | Use the open-source `trae-agent` CLI instead of trying to drive the Trae IDE UI |
+| qCoder / QCoder browser tools | Only if they expose a CLI you want to run | For Qoder, use `qodercli`; for qCoder quantum-workflow tooling, use its local `qcoder` commands as normal terminal tools |
+
+OpenAI's official mobile Codex experience is different: Codex is available inside the ChatGPT mobile app, connected through OpenAI's secure relay to trusted machines where Codex is running. `chat2ide` uses the same broad pattern--phone as control surface, server keeps files and credentials, terminal output streams back--but it is self-hosted, generic, and PTY-based rather than an official OpenAI relay client.

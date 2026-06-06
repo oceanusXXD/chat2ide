@@ -38,6 +38,58 @@
 
 默认命令是 `codex`。如果你想接入 Claude Code、Gemini CLI、Aider 或自己的 AI coding wrapper，可以把 `CODEX_COMMAND` 指向对应命令，用 `CODEX_ARGS` 配启动参数。`chat2ide` 不调用这些工具的私有 API；它只负责把手机/浏览器输入通过 WebSocket 写入真实 PTY，再把 PTY 输出流式送回网页。
 
+## Cursor、Windsurf、Trae、Qoder/qCoder 接入边界
+
+`chat2ide` 支持的是“终端原生”的 AI coding agent：工具必须能在服务器 shell 里以 CLI 方式运行，并且能在 PTY 里接收 stdin、输出 stdout/stderr。GUI 编辑器本身可以和 `chat2ide` 共用同一个项目目录，但 `chat2ide` 不会远程操控编辑器窗口、插件侧边栏或云端私有会话。
+
+| 平台 | 是否能直接作为 `CODEX_COMMAND` | 推荐接入方式 | 注意点 |
+| --- | --- | --- | --- |
+| Codex CLI | 可以 | `CODEX_COMMAND=codex` | 默认目标。先在服务器上完成 Codex 登录和项目授权。 |
+| Cursor Agent CLI | 可以 | `CODEX_COMMAND=cursor-agent` | 需要先在服务器安装 Cursor CLI 并登录。适合 Cursor 的终端 agent，不等同于远程控制 Cursor 编辑器 GUI。 |
+| Qoder CLI | 可以 | `CODEX_COMMAND=qodercli` | 需要先安装并登录 `qodercli`。如果你说的是其他 `qcoder` 工具，只要它能在终端交互运行，也可以用同样方式接入。 |
+| Trae Agent CLI | 可以，针对开源 `trae-agent` | 可以在 `chat2ide` 终端里运行 `trae-cli run "<task>"`，或写 wrapper 脚本作为 `CODEX_COMMAND` | Trae IDE 是 GUI 编辑器，不能被 `chat2ide` 直接操控；可接入的是 CLI agent。 |
+| Windsurf | 不建议直接作为 `CODEX_COMMAND` | 在 Windsurf IDE 里使用 Cascade；`chat2ide` 用来从手机查看同一台服务器/同一仓库里的 shell、测试和其他 CLI agent | Windsurf 的核心 AI 体验是 IDE 内 Cascade/Terminal，不是通用的独立 PTY agent。 |
+| Trae IDE | 不支持直接操控 GUI | 用 Trae IDE 本身开发；需要手机接管时，用 `trae-agent` CLI 或其他终端 agent | `chat2ide` 不做远程桌面，也不接管 IDE 插件状态。 |
+| Cursor / Windsurf / Trae 等 GUI 编辑器 | 间接配合 | 让编辑器和 `chat2ide` 指向同一台机器、同一份 repo、同一套 git/测试命令 | `chat2ide` 负责终端流；GUI 编辑器负责本地/桌面交互。 |
+
+常见配置：
+
+```dotenv
+# Codex CLI
+CODEX_COMMAND=codex
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Cursor Agent CLI
+CODEX_COMMAND=cursor-agent
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Qoder CLI
+CODEX_COMMAND=qodercli
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Trae Agent wrapper：scripts/run-trae-agent.sh 内部可以调用 trae-cli run 或进入交互 shell
+CODEX_COMMAND=/srv/chat2ide/scripts/run-trae-agent.sh
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+如果某个平台只有桌面 GUI、浏览器工作台或 IDE 插件，没有公开的终端 CLI，就不要把它直接写成 `CODEX_COMMAND`。这时推荐把 `CODEX_COMMAND` 设置为 `bash`/`powershell`，然后在 `chat2ide` 里运行测试、git、部署脚本，或者启动另一个真正的 CLI agent。
+
+## 和 OpenAI 官方移动端 Codex 的关系
+
+OpenAI 官方的移动端 Codex 体验是在 ChatGPT mobile 中使用 Codex，并通过安全 relay 连接到已经配置好的开发环境。它不是这个仓库的一部分，也不是我在公开资料里能确认的“官方开源手机 app”。
+
+`chat2ide` 借鉴的是同一个产品方向：手机只做控制面，代码、凭据、AI coding CLI 和 PTY 进程仍留在可信服务器上。区别是 `chat2ide` 是自托管、通用 PTY 桥接层，不绑定 OpenAI relay，也不限定只能跑 Codex CLI。
+
 ## 不适合什么
 
 - 多用户团队 IDE。
@@ -77,7 +129,7 @@ flowchart TB
   end
 
   subgraph Coding["AI coding environment"]
-    CLI["AI coding CLI<br/>Codex / Claude Code / Gemini / Aider / custom"]
+    CLI["AI coding CLI<br/>Codex / Cursor Agent / Qoder / Trae Agent / custom"]
     Repo["Project workspace<br/>CODEX_CWD"]
   end
 

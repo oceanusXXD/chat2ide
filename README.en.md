@@ -38,6 +38,58 @@ The mobile view is not a shrunken desktop terminal. It keeps the workspace statu
 
 The default command is `codex`. To use Claude Code, Gemini CLI, Aider, or a custom AI coding wrapper, point `CODEX_COMMAND` at that command and configure `CODEX_ARGS` as needed. `chat2ide` does not call those tools through private APIs; it moves terminal bytes between the browser, WebSocket, PTY, and CLI process.
 
+## Cursor, Windsurf, Trae, Qoder, and qCoder
+
+`chat2ide` directly supports terminal-native AI coding agents: the tool must run inside a server shell, accept stdin in a PTY, and write terminal output to stdout/stderr. GUI editors can share the same host and project directory, but `chat2ide` does not remote-control editor windows, proprietary sidebars, or cloud sessions.
+
+| Platform | Direct `CODEX_COMMAND` target? | Recommended setup | Boundary |
+| --- | --- | --- | --- |
+| Codex CLI | Yes | `CODEX_COMMAND=codex` | Default target. Authenticate Codex on the server first. |
+| Cursor Agent CLI | Yes | `CODEX_COMMAND=cursor-agent` | Uses Cursor's terminal agent. This does not control the Cursor editor GUI. |
+| Qoder CLI | Yes | `CODEX_COMMAND=qodercli` | Install and sign in to `qodercli` on the server. If you meant another `qcoder` tool, it works only if it is a terminal CLI. |
+| Trae Agent CLI | Yes, for open-source `trae-agent` | Run `trae-cli run "<task>"` inside a chat2ide shell, or wrap it as `CODEX_COMMAND` | Trae IDE is a GUI editor; use the CLI agent for PTY control. |
+| Windsurf | Not recommended as a direct PTY agent | Use Cascade inside Windsurf IDE; use chat2ide beside it for mobile shell, tests, git, and other CLI agents | Windsurf's core AI workflow is IDE-integrated, not a generic standalone PTY agent. |
+| Trae IDE | No GUI control | Use Trae IDE normally; use `trae-agent` or another terminal agent when mobile handoff is needed | `chat2ide` is not remote desktop and does not control IDE plugin state. |
+| GUI editors such as Cursor, Windsurf, Trae | Indirect pairing | Point the editor and `chat2ide` at the same machine, repo, git state, and test commands | Editor handles desktop interaction; `chat2ide` handles terminal streams. |
+
+Common configurations:
+
+```dotenv
+# Codex CLI
+CODEX_COMMAND=codex
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Cursor Agent CLI
+CODEX_COMMAND=cursor-agent
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Qoder CLI
+CODEX_COMMAND=qodercli
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Trae Agent wrapper. scripts/run-trae-agent.sh can call trae-cli run or start a shell.
+CODEX_COMMAND=/srv/chat2ide/scripts/run-trae-agent.sh
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+If a platform only exposes a desktop GUI, browser workspace, or IDE plugin and has no public terminal CLI, do not set it directly as `CODEX_COMMAND`. Use `bash`/`powershell` as the command instead, then run tests, git, deployment scripts, or another real CLI agent from the mobile terminal.
+
+## Relationship to OpenAI's Mobile Codex Experience
+
+OpenAI's official mobile Codex experience runs inside ChatGPT mobile and connects through a secure relay to trusted machines where Codex has been configured. That is not part of this repository, and I have not found public evidence that the official mobile client is an open-source app.
+
+`chat2ide` follows the same product direction: the phone is the control surface, while code, credentials, AI coding CLIs, and PTY processes stay on a trusted server. The difference is that `chat2ide` is self-hosted, generic, and PTY-based rather than an OpenAI relay client.
+
 ## What It Is Not
 
 - A multi-user IDE.
@@ -77,7 +129,7 @@ flowchart TB
   end
 
   subgraph Coding["AI coding environment"]
-    CLI["AI coding CLI<br/>Codex / Claude Code / Gemini / Aider / custom"]
+    CLI["AI coding CLI<br/>Codex / Cursor Agent / Qoder / Trae Agent / custom"]
     Repo["Project workspace<br/>CODEX_CWD"]
   end
 
