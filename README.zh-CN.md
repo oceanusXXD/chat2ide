@@ -1,8 +1,10 @@
 # chat2ide
 
-`chat2ide` 是一个自托管的单用户 Codex CLI 远程终端。它在服务器上启动真实 PTY 进程，然后把终端画面、输入、重连和最近输出回放放到浏览器里。
+`chat2ide` 是一个自托管的 AI coding CLI 手机远程终端。它在服务器上启动真实 PTY 进程，然后把 Codex CLI、Qoder、Claude Code、Cursor Agent、Qwen Code、CodeBuddy、Kimi Code、Aider 等终端 agent 的画面、输入、重连和最近输出回放放到浏览器里。
 
-它解决的是一个很具体的问题：你有一台可信的 Linux 开发机、VPS 或家用服务器，Codex CLI 已经能在上面跑。你想从电脑、平板或手机查看任务，必要时发一条指令、按 `Ctrl+C`、重启或关闭终端。
+它解决的是一个很具体的问题：你有一台可信的 Linux 开发机、VPS 或家用服务器，AI coding CLI 已经能在上面跑。你想从电脑、平板或手机查看任务，必要时发一条指令、按 `Ctrl+C`、重启或关闭终端。
+
+它不是远程桌面，也不是在线 IDE。核心是 React、xterm.js、WebSocket 和 `node-pty`：把真实 PTY session 暴露成可重连、可回放、适合移动端使用的私有 Web 控制台。
 
 ## 界面预览
 
@@ -11,6 +13,15 @@
 </p>
 
 手机端不是把桌面终端强行缩小，而是把紧凑 session 状态栏、终端标签、真实 xterm 输出和底部输入栏放在一个可接管长任务的工作台里。
+
+## 适合谁搜索到这个项目
+
+如果你在找下面这些东西，`chat2ide` 基本就是这个方向：
+
+- 手机上远程查看和接管 Codex CLI、Qoder、Claude Code、Cursor Agent、Qwen Code 等 AI coding 任务。
+- 给自托管开发机、VPS、家用服务器加一个私有 Web 终端，而不是开远程桌面。
+- 用 Cloudflare Tunnel、WebSocket、`node-pty`、`xterm.js` 搭一个可重连的 mobile terminal。
+- 让 Cursor、Trae、Windsurf 这类 IDE 之外的命令行 agent 可以被手机查看、输入、`Ctrl+C` 和重启。
 
 ## 这个仓库可以做什么
 

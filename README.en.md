@@ -1,8 +1,10 @@
 # chat2ide
 
-`chat2ide` is a self-hosted remote terminal for one user's Codex CLI sessions. It starts real PTY processes on your server and exposes terminal output, input, reconnect, and recent-output replay through a browser UI.
+`chat2ide` is a self-hosted mobile remote terminal for AI coding CLIs. It starts real PTY processes on your server and exposes Codex CLI, Qoder, Claude Code, Cursor Agent, Qwen Code, CodeBuddy, Kimi Code, Aider, and other terminal agents through a browser UI.
 
-It is built for a narrow use case: you already have Codex CLI working on a trusted Linux dev box, VPS, or home server, and you want to check or steer those jobs from a laptop, tablet, or phone.
+It is built for a narrow use case: you already have an AI coding CLI working on a trusted Linux dev box, VPS, or home server, and you want to check or steer those jobs from a laptop, tablet, or phone.
+
+It is not remote desktop and it is not an online IDE. The core is React, xterm.js, WebSocket, and `node-pty`: a private web console for real PTY sessions with reconnect and recent-output replay.
 
 ## Preview
 
@@ -11,6 +13,15 @@ It is built for a narrow use case: you already have Codex CLI working on a trust
 </p>
 
 The mobile view is not a shrunken desktop terminal. It keeps the workspace status, terminal tabs, real xterm output, and a bottom command composer in one screen for long-running AI coding jobs.
+
+## Search Fit
+
+This repository is meant for people looking for:
+
+- Mobile control for Codex CLI, Qoder, Claude Code, Cursor Agent, Qwen Code, and other AI coding CLI jobs.
+- A self-hosted private web terminal for a Linux dev box, VPS, or home server, without remote desktop.
+- A reconnectable mobile terminal built with Cloudflare Tunnel, WebSocket, `node-pty`, and `xterm.js`.
+- A way to view, type into, interrupt with `Ctrl+C`, and restart terminal agents from a phone.
 
 ## What This Repository Does
 

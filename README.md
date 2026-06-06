@@ -1,13 +1,15 @@
 # chat2ide
 
-把服务器上的 AI Coding CLI 变成一个手机也能接管的远程终端工作台。
+自托管的 AI coding CLI 手机远程终端。用浏览器或手机接管跑在服务器上的 Codex CLI、Qoder、Claude Code、Cursor Agent、Qwen Code、CodeBuddy、Kimi Code、Aider 等终端 agent。
+
+它不是远程桌面，也不是在线 IDE。核心是 React、xterm.js、WebSocket 和 `node-pty`：把真实 PTY session 暴露成可重连、可回放、适合移动端使用的私有 Web 控制台。
 
 <p align="center">
   <img src="docs/assets/chat2ide-mobile-workbench.png" alt="chat2ide 手机端远程终端工作台" width="360">
 </p>
 
 <p align="center">
-  <em>不是远程桌面，也不是多人 IDE。它做一件事：把真实 PTY 里的 AI coding session 稳定地送到浏览器和手机上。</em>
+  <em>一个私有 mobile terminal，把真实 PTY 里的 AI coding session 稳定地送到浏览器和手机上。</em>
 </p>
 
 阅读其他版本：
@@ -15,9 +17,18 @@
 - [English README](README.en.md)
 - [完整中文文档](README.zh-CN.md)
 
+## 适合谁搜索到这个项目
+
+如果你在找下面这些东西，`chat2ide` 基本就是这个方向：
+
+- 手机上远程查看和接管 Codex CLI、Qoder、Claude Code、Cursor Agent、Qwen Code 等 AI coding 任务。
+- 给自托管开发机、VPS、家用服务器加一个私有 Web 终端，而不是开远程桌面。
+- 用 Cloudflare Tunnel、WebSocket、`node-pty`、`xterm.js` 搭一个可重连的 mobile terminal。
+- 让 Cursor、Trae、Windsurf 这类 IDE 之外的命令行 agent 可以被手机查看、输入、`Ctrl+C` 和重启。
+
 ## 这个项目解决什么
 
-很多 AI coding 工具都已经有不错的 CLI：Codex、Claude Code、Gemini CLI、Cursor Agent、Qoder、CodeBuddy、CodeArts Agent、Kimi Code、Trae Agent、Qwen Code、Aider、Goose 等。问题是它们通常跑在电脑或服务器终端里，任务一跑久，人离开电脑后就很难继续观察和接管。
+很多 AI coding 工具已经有不错的命令行版本：OpenAI Codex CLI、Claude Code、Gemini CLI、Cursor Agent、Qoder、CodeBuddy、CodeArts Agent、Kimi Code、Trae Agent、Qwen Code、Aider、Goose 等。问题是它们通常跑在电脑或服务器终端里，任务一跑久，人离开电脑后就很难继续观察和接管。
 
 `chat2ide` 的定位很直接：
 

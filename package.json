@@ -1,7 +1,7 @@
 {
   "name": "chat2ide",
   "version": "1.0.0",
-  "description": "Self-hosted browser and mobile terminal for long-running Codex CLI sessions",
+  "description": "Self-hosted mobile remote terminal for Codex, Qoder, Claude Code, Cursor Agent, and other AI coding CLIs",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -12,10 +12,22 @@
   },
   "homepage": "https://github.com/oceanusXXD/chat2ide#readme",
   "keywords": [
+    "ai-coding",
+    "ai-coding-cli",
     "codex",
+    "codex-cli",
+    "qoder",
+    "claude-code",
+    "cursor-agent",
+    "qwen-code",
+    "remote-terminal",
+    "mobile-terminal",
     "terminal",
     "self-hosted",
+    "node-pty",
     "xterm",
+    "xtermjs",
+    "websocket",
     "cloudflare-tunnel"
   ],
   "engines": {
