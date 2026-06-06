@@ -66,15 +66,15 @@ export function ComposerBar({
   };
 
   return (
-    <div className="border-t border-white/10 bg-panelAlt/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur sm:px-3">
+    <div className="border-t border-white/10 bg-panelAlt/95 px-2 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur sm:px-3 sm:pt-2 sm:pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
       <form
-        className="grid grid-cols-[minmax(0,1fr)_repeat(4,2.75rem)] gap-1.5 md:grid-cols-[minmax(0,1fr)_8rem_repeat(4,6.5rem)] md:items-stretch md:gap-2"
+        className="grid grid-cols-[minmax(0,1fr)_repeat(4,2.5rem)] gap-1.5 md:grid-cols-[minmax(0,1fr)_8rem_repeat(4,6.5rem)] md:items-stretch md:gap-2"
         onSubmit={handleSubmit}
       >
         <textarea
           autoCapitalize="none"
           autoCorrect="off"
-          className="col-span-5 min-h-[3rem] max-h-[24dvh] w-full resize-none rounded-lg border border-white/10 bg-slate-950/80 px-3 py-2 text-[13px] leading-5 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-accent focus:ring-2 focus:ring-accent/30 disabled:opacity-50 md:col-span-1 md:min-h-12 md:px-4 md:py-3 md:text-sm md:leading-5"
+          className="col-span-5 min-h-10 max-h-[22dvh] w-full resize-none rounded-md border border-white/10 bg-slate-950/80 px-3 py-2 text-[13px] leading-5 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-accent focus:ring-2 focus:ring-accent/25 disabled:opacity-50 md:col-span-1 md:min-h-12 md:rounded-lg md:px-4 md:py-3 md:text-sm md:leading-5"
           disabled={!activeTerminal || busy}
           enterKeyHint="send"
           placeholder={
@@ -91,7 +91,7 @@ export function ComposerBar({
         />
 
         <button
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent px-3 text-sm font-semibold text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-50 md:min-h-12 md:px-4"
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-accent px-3 text-sm font-semibold text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-50 md:min-h-12 md:rounded-lg md:px-4"
           disabled={!inputReady || !value.trim()}
           type="submit"
         >
@@ -149,7 +149,7 @@ function ControlButton({
   return (
     <button
       aria-label={label}
-      className={`inline-flex min-h-11 items-center justify-center rounded-lg border text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 md:min-h-12 md:gap-1.5 md:px-4 md:text-sm ${toneClass}`}
+      className={`inline-flex min-h-10 items-center justify-center rounded-md border text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 md:min-h-12 md:rounded-lg md:gap-1.5 md:px-4 md:text-sm ${toneClass}`}
       disabled={disabled}
       title={label}
       type="button"

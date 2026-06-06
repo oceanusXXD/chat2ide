@@ -45,9 +45,12 @@ The default command is `codex`. To use Claude Code, Gemini CLI, Aider, or a cust
 | Platform | Direct `CODEX_COMMAND` target? | Recommended setup | Boundary |
 | --- | --- | --- | --- |
 | Codex CLI | Yes | `CODEX_COMMAND=codex` | Default target. Authenticate Codex on the server first. |
+| Claude Code | Yes | `CODEX_COMMAND=claude` | Install and sign in on the server first. |
+| Gemini CLI | Yes | `CODEX_COMMAND=gemini` | Install and sign in on the server first. |
 | Cursor Agent CLI | Yes | `CODEX_COMMAND=cursor-agent` | Uses Cursor's terminal agent. This does not control the Cursor editor GUI. |
 | Qoder CLI | Yes | `CODEX_COMMAND=qodercli` | Install and sign in to `qodercli` on the server. If you meant another `qcoder` tool, it works only if it is a terminal CLI. |
 | Trae Agent CLI | Yes, for open-source `trae-agent` | Run `trae-cli run "<task>"` inside a chat2ide shell, or wrap it as `CODEX_COMMAND` | Trae IDE is a GUI editor; use the CLI agent for PTY control. |
+| Aider / Goose / custom agents | Yes | Set `CODEX_COMMAND` to the binary or wrapper script | Works when the tool behaves like a terminal program. |
 | Windsurf | Not recommended as a direct PTY agent | Use Cascade inside Windsurf IDE; use chat2ide beside it for mobile shell, tests, git, and other CLI agents | Windsurf's core AI workflow is IDE-integrated, not a generic standalone PTY agent. |
 | Trae IDE | No GUI control | Use Trae IDE normally; use `trae-agent` or another terminal agent when mobile handoff is needed | `chat2ide` is not remote desktop and does not control IDE plugin state. |
 | GUI editors such as Cursor, Windsurf, Trae | Indirect pairing | Point the editor and `chat2ide` at the same machine, repo, git state, and test commands | Editor handles desktop interaction; `chat2ide` handles terminal streams. |
@@ -69,6 +72,20 @@ CODEX_CWD=/srv/your-project
 ```
 
 ```dotenv
+# Claude Code
+CODEX_COMMAND=claude
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Gemini CLI
+CODEX_COMMAND=gemini
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
 # Qoder CLI
 CODEX_COMMAND=qodercli
 CODEX_ARGS=[]
@@ -83,12 +100,6 @@ CODEX_CWD=/srv/your-project
 ```
 
 If a platform only exposes a desktop GUI, browser workspace, or IDE plugin and has no public terminal CLI, do not set it directly as `CODEX_COMMAND`. Use `bash`/`powershell` as the command instead, then run tests, git, deployment scripts, or another real CLI agent from the mobile terminal.
-
-## Relationship to OpenAI's Mobile Codex Experience
-
-OpenAI's official mobile Codex experience runs inside ChatGPT mobile and connects through a secure relay to trusted machines where Codex has been configured. That is not part of this repository, and I have not found public evidence that the official mobile client is an open-source app.
-
-`chat2ide` follows the same product direction: the phone is the control surface, while code, credentials, AI coding CLIs, and PTY processes stay on a trusted server. The difference is that `chat2ide` is self-hosted, generic, and PTY-based rather than an OpenAI relay client.
 
 ## What It Is Not
 
@@ -311,7 +322,7 @@ HTTP API and WebSocket use the same origin. The WebSocket path is `/ws`. See [Cl
 6. Use `Ctrl+C` to interrupt, "Stop" to end the process, "Restart" to clear the view and start a new PTY, and "Close" to remove the tab.
 7. After refresh or a short disconnect, the page reattaches to the current terminal and replays recent output.
 
-On phones, use the bottom input bar first. Terminal tabs scroll horizontally; the top overview shows whether background terminals have unread output, errors, or sessions still starting.
+On phones, use the bottom input bar first. Terminal tabs scroll horizontally; the compact status line shows connection state, the active terminal, unread output, and terminal size.
 
 ## Mobile Check
 
@@ -329,7 +340,7 @@ npm run build
 $env:APP_PIN="123456"; $env:CODEX_COMMAND="powershell.exe"; $env:CODEX_ARGS='["-NoLogo"]'; $env:CODEX_CWD=$PWD; npm run start
 ```
 
-Open `http://127.0.0.1:3000`, check that the page has no horizontal scrolling, that the overview does not crowd out the terminal, that the terminal and bottom input are visible, and send one command to confirm output appears. Send a second command and use the arrow keys in single-line input to confirm the in-memory command history recalls it.
+Open `http://127.0.0.1:3000`, check that the page has no horizontal scrolling, that the status line does not crowd out the terminal, that the terminal and bottom input are visible, and send one command to confirm output appears. Send a second command and use the arrow keys in single-line input to confirm the in-memory command history recalls it.
 
 ## Operational Boundaries
 

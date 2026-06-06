@@ -526,14 +526,14 @@ export default function App() {
 
   return (
     <main className="app-shell flex h-[100dvh] flex-col overflow-hidden bg-[#071019] text-ink">
-      <header className="shrink-0 border-b border-white/10 bg-panel/95 px-3 py-2.5 backdrop-blur sm:px-4 sm:py-3">
-        <div className="flex flex-col gap-2 sm:gap-3">
-          <div className="flex items-start gap-2">
+      <header className="shrink-0 border-b border-white/10 bg-panel/95 px-2.5 py-2 backdrop-blur sm:px-4 sm:py-3">
+        <div className="flex flex-col gap-1.5 sm:gap-3">
+          <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] leading-4 text-slate-400 sm:text-xs">
+              <p className="hidden text-[11px] leading-4 text-slate-400 sm:block sm:text-xs">
                 chat2ide · 单用户 AI 编程控制台
               </p>
-              <h1 className="truncate text-xl font-semibold leading-tight text-white sm:text-2xl">
+              <h1 className="truncate text-base font-semibold leading-tight text-white sm:text-2xl">
                 私有 Codex 远程终端
               </h1>
             </div>
@@ -578,6 +578,7 @@ export default function App() {
               icon={Plus}
               label="新建终端"
               disabled={busyAction}
+              hideLabelOnMobile
               onClick={handleCreateTerminal}
             />
             <ToolbarButton
@@ -611,7 +612,13 @@ export default function App() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between">
+          <MobileSessionLine
+            activeTerminal={activeTerminal}
+            stats={terminalStats}
+            connectionState={connectionState}
+          />
+
+          <div className="hidden flex-col gap-1.5 sm:flex lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-2 text-[11px] leading-4 text-slate-400 sm:text-xs lg:flex-1">
               {activeTerminal ? (
                 <span className="shrink-0 text-slate-300 sm:hidden">
@@ -645,7 +652,7 @@ export default function App() {
         onSelect={handleSelectTerminal}
       />
 
-      <section className="flex min-h-0 flex-1 flex-col px-2 py-2 sm:px-3">
+      <section className="flex min-h-0 flex-1 flex-col px-2 py-1.5 sm:px-3 sm:py-2">
         <div className="flex min-h-0 flex-1 flex-col">
           {terminals.length === 0 ? (
             <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-white/10 bg-[#0b131d] px-6 text-center text-sm leading-6 text-slate-400">
@@ -707,7 +714,7 @@ function StatusChip({
 
   return (
     <div
-      className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] leading-none ${toneClass}`}
+      className={`inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] leading-none sm:min-h-8 sm:rounded-lg sm:px-2.5 sm:py-1.5 ${toneClass}`}
     >
       <span className="text-slate-400">{label}</span>
       <span className="font-medium">{value}</span>
@@ -738,7 +745,7 @@ function ToolbarButton({
   return (
     <button
       aria-label={label}
-      className={`inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm ${toneClass}`}
+      className={`inline-flex min-h-9 min-w-9 shrink-0 items-center justify-center gap-1.5 rounded-md border px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:rounded-lg sm:px-4 sm:text-sm ${toneClass}`}
       disabled={disabled}
       title={label}
       type="button"
@@ -747,6 +754,41 @@ function ToolbarButton({
       <Icon aria-hidden className="h-4 w-4" />
       <span className={hideLabelOnMobile ? 'hidden sm:inline' : ''}>{label}</span>
     </button>
+  );
+}
+
+function MobileSessionLine({
+  activeTerminal,
+  connectionState,
+  stats,
+}: {
+  activeTerminal: TerminalSummary | null;
+  connectionState: string;
+  stats: TerminalWorkbenchStats;
+}) {
+  const stateDotClass =
+    connectionState === 'connected'
+      ? 'bg-success'
+      : connectionState === 'connecting'
+      ? 'bg-warning'
+      : connectionState === 'auth_error'
+      ? 'bg-danger'
+      : 'bg-slate-500';
+  const size = activeTerminal ? `${activeTerminal.cols}x${activeTerminal.rows}` : '-';
+
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-md border border-white/10 bg-slate-950/45 px-2 py-1.5 font-mono text-[11px] leading-none text-slate-300 sm:hidden">
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${stateDotClass}`} />
+      <span className="min-w-0 flex-1 truncate">
+        {activeTerminal
+          ? `${activeTerminal.name} · ${formatTerminalStatus(activeTerminal.status)} · ${activeTerminal.cwd}`
+          : 'no terminal selected'}
+      </span>
+      <span className="shrink-0 tabular-nums">
+        {formatCompactCount(stats.unread)}u
+      </span>
+      <span className="shrink-0 text-slate-500">{size}</span>
+    </div>
   );
 }
 

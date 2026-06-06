@@ -133,11 +133,12 @@ sequenceDiagram
 | Tool | Direct `CODEX_COMMAND` target? | How to use it |
 | --- | --- | --- |
 | OpenAI Codex CLI | Yes | `CODEX_COMMAND=codex` |
+| Anthropic Claude Code | Yes | Install and sign in on the host, then use `CODEX_COMMAND=claude` |
+| Google Gemini CLI | Yes | Install and sign in on the host, then use `CODEX_COMMAND=gemini` |
 | Cursor Agent CLI | Yes | Install Cursor CLI on the host, authenticate it, then use `CODEX_COMMAND=cursor-agent` |
 | Qoder CLI | Yes | Install `qodercli`, sign in, then use `CODEX_COMMAND=qodercli` |
 | Trae Agent CLI | Yes, for `trae-agent` | Install ByteDance `trae-agent`; run `trae-cli` tasks from a chat2ide shell or wrap a task command |
+| Aider / Goose / custom agents | Yes | Set `CODEX_COMMAND` to the agent binary or wrapper script |
 | Windsurf | Not as a standalone PTY agent | Windsurf Cascade is IDE-integrated. Use chat2ide beside Windsurf on the same repo, not as a remote controller for the Windsurf GUI |
 | Trae IDE | Not as a GUI app | Use the open-source `trae-agent` CLI instead of trying to drive the Trae IDE UI |
 | qCoder / QCoder browser tools | Only if they expose a CLI you want to run | For Qoder, use `qodercli`; for qCoder quantum-workflow tooling, use its local `qcoder` commands as normal terminal tools |
-
-OpenAI's official mobile Codex experience is different: Codex is available inside the ChatGPT mobile app, connected through OpenAI's secure relay to trusted machines where Codex is running. `chat2ide` uses the same broad pattern--phone as control surface, server keeps files and credentials, terminal output streams back--but it is self-hosted, generic, and PTY-based rather than an official OpenAI relay client.
