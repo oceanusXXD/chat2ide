@@ -53,12 +53,29 @@ Before calling an integration ready on a new host, verify four things: the comma
 | Qoder CLI | Yes | `CODEX_COMMAND=qodercli` | Install `@qoder-ai/qodercli`, run `qodercli`, then use `/login` or `QODER_PERSONAL_ACCESS_TOKEN`. If you refer to qCoder in this project, it means Qoder. | [Qoder CLI quick start](https://docs.qoder.com/en/cli/quick-start) |
 | Trae Agent CLI | Yes | `CODEX_COMMAND=trae-cli`, `CODEX_ARGS=["interactive"]` | Use the open-source `trae-agent` CLI. For one-off tasks, run `trae-cli run "<task>"` inside a shell or wrapper. | [trae-agent README](https://github.com/bytedance/trae-agent/blob/main/README.md) |
 | Qwen Code | Yes | `CODEX_COMMAND=qwen` | Install `@qwen-code/qwen-code`, run `qwen`, then configure `/auth`. | [Qwen Code](https://github.com/QwenLM/qwen-code) |
+| Tencent CodeBuddy Code | Yes | `CODEX_COMMAND=codebuddy` | Install `@tencent-ai/codebuddy-code`, confirm `codebuddy --version`, then run `codebuddy` from the project directory to finish login and permission prompts. | [CodeBuddy Code installation](https://copilot.tencent.com/docs/cli/installation) |
+| Tencent CloudBase AI CLI | Yes, as a unified entrypoint | `CODEX_COMMAND=tcb`, `CODEX_ARGS=["ai","-a","codebuddy"]` | Useful for CloudBase or Tencent Cloud projects. Sign in to CloudBase CLI first, then use `tcb ai` to choose CodeBuddy, Qwen Code, or another backend tool. | [CloudBase AI CLI](https://docs.cloudbase.net/cli-v1/ai/introduce) |
+| Huawei CodeArts Agent / Madao CLI | Yes | `CODEX_COMMAND=codearts` | Install the Madao CLI, run `codearts` in the project directory, and finish browser authorization. Use `codearts run "<message>"` for one-off tasks. | [Quick start](https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0002.html) / [Command reference](https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0034.html) |
+| Kimi Code CLI | Yes | `CODEX_COMMAND=kimi` | Install `@moonshot-ai/kimi-code` or the official installer, confirm `kimi --version`, then use `/login` on first launch. | [Kimi Code getting started](https://www.kimi.com/code/docs/en/kimi-code-cli/guides/getting-started.html) |
 | Kiro CLI | Yes | `CODEX_COMMAND=kiro-cli`, `CODEX_ARGS=["chat"]` | Install Kiro CLI, complete browser authentication, then start chat from the project directory. | [Kiro CLI installation](https://kiro.dev/docs/cli/installation/) |
 | GitHub Copilot CLI | Yes, if the standalone CLI is installed | `CODEX_COMMAND=copilot` | Install Copilot CLI, ensure organization policy allows it, and sign in. Use a wrapper if you only have `gh copilot`. | [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/cli-getting-started) |
 | Aider | Yes | `CODEX_COMMAND=aider` | Install `aider-chat`, configure model credentials, and start it in the repo. | [Aider installation](https://aider.chat/docs/install.html) |
 | Goose CLI | Yes | `CODEX_COMMAND=goose`, `CODEX_ARGS=["session"]` | Install the CLI, configure an LLM provider, then run `goose session`. | [Goose installation](https://goose-docs.ai/docs/getting-started/installation/) |
 | Windsurf / Devin Desktop | Indirect | `CODEX_COMMAND=bash` or `powershell` | Use Cascade and the enhanced terminal inside the IDE; use `chat2ide` beside it for mobile shell, tests, git, and other CLI agents. | [Terminal and Cascade docs](https://docs.devin.ai/desktop/terminal) |
 | Trae IDE | Indirect unless using `trae-agent` | Use `trae-cli` for direct PTY control | `chat2ide` is not remote desktop and does not control IDE plugin state. | [trae-agent README](https://github.com/bytedance/trae-agent/blob/main/README.md) |
+
+### China-Market Platform Status
+
+These tools are common in China-market development workflows, but not every product shape can be controlled by `chat2ide`. The rule is unchanged: direct support requires a public terminal CLI that runs inside a PTY.
+
+| Platform | Current status | Notes | Reference |
+| --- | --- | --- | --- |
+| Alibaba Lingma IDE / plugins | Waiting development / indirect | Public docs focus on Lingma IDE, VS Code / JetBrains plugins, and Agent Mode. No standalone terminal CLI is shown there as a `CODEX_COMMAND` target. Use Qoder or Qwen Code for Alibaba-family terminal workflows. | [Lingma IDE quick start](https://help.aliyun.com/zh/lingma/user-guide/lingma-ide-get-started) |
+| Baidu Comate / Wenxin Kuaima | Waiting development / indirect | Public docs describe Comate Agent inside the Comate plugin or Comate AI IDE. No standalone CLI is shown there as a direct `CODEX_COMMAND` target. | [Comate Agent overview](https://cloud.baidu.com/doc/COMATE/s/9mm5qvpb4) |
+| MarsCode / Trae IDE | Indirect, CLI path is `trae-agent` | MarsCode / Trae IDE are IDE, cloud workspace, or plugin experiences. Use `trae-cli` when terminal control is required. | [MarsCode](https://www.marscode.com/home) |
+| CodeGeeX | Waiting development / indirect | The official product is centered on IDE plugins and enterprise editions. Public docs do not show an official terminal-native coding-agent CLI. | [CodeGeeX](https://www.codegeex.cn/) |
+| CodeBuddy IDE / plugins | Indirect, CLI path is `codebuddy` | GUI and plugin state are not remote-controlled by `chat2ide`; use CodeBuddy Code CLI for direct PTY integration. | [CodeBuddy IDE introduction](https://copilot.tencent.com/docs/ide/Introduction) |
+| CodeArts Snap / IDE plugins | Indirect, CLI path is `codearts` | IDE assistants and plugins are not remote-controlled by `chat2ide`; use CodeArts Agent / Madao CLI for direct PTY integration. | [CodeArts Agent CLI](https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0001.html) |
 
 Common configurations:
 
@@ -107,6 +124,34 @@ CODEX_CWD=/srv/your-project
 ```dotenv
 # Qwen Code
 CODEX_COMMAND=qwen
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Tencent CodeBuddy Code
+CODEX_COMMAND=codebuddy
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Tencent CloudBase AI CLI, using CodeBuddy Code
+CODEX_COMMAND=tcb
+CODEX_ARGS=["ai","-a","codebuddy"]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Huawei CodeArts Agent / Madao CLI
+CODEX_COMMAND=codearts
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Kimi Code CLI
+CODEX_COMMAND=kimi
 CODEX_ARGS=[]
 CODEX_CWD=/srv/your-project
 ```
@@ -297,7 +342,7 @@ flowchart LR
   App --> Auth["PIN session<br/>HttpOnly cookie"]
   App <-->|REST + /ws| Manager["Session manager<br/>limits + replay buffer"]
   Manager --> PTY["node-pty<br/>real PTY"]
-  PTY <-->|stdin / stdout / resize| CLI["AI coding CLI<br/>codex / claude / gemini / cursor-agent / qodercli / custom"]
+  PTY <-->|stdin / stdout / resize| CLI["AI coding CLI<br/>codex / qodercli / codebuddy / codearts / kimi / custom"]
   CLI <-->|files / tests / git| Repo["Project workspace<br/>CODEX_CWD"]
 ```
 
@@ -332,7 +377,8 @@ When a terminal is created, the server stores a `starting` session first. The PT
 
 These are planned improvements, not current guarantees:
 
-- Provider presets for Codex, Qoder, Claude Code, Gemini CLI, Cursor Agent, and other common terminal agents.
+- Provider presets for Codex, Qoder, CodeBuddy, CodeArts Agent, Kimi Code, Qwen Code, Claude Code, Gemini CLI, Cursor Agent, and other common terminal agents.
+- China-market platform follow-up: if Lingma, Comate, MarsCode, CodeGeeX, or similar tools publish standalone terminal CLIs, add them as direct presets.
 - A Qoder smoke-test guide or script that checks install, login, startup, and terminal output.
 - Wrapper templates such as `scripts/run-qoder.sh` and `scripts/run-claude.sh` for parameterized agent startup.
 - Optional notifications for completed tasks, crashed terminals, and unread background output.

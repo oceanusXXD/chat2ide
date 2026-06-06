@@ -53,12 +53,29 @@
 | Qoder CLI | 可以 | `CODEX_COMMAND=qodercli` | 安装 `@qoder-ai/qodercli`，运行 `qodercli`，再用 `/login` 或 `QODER_PERSONAL_ACCESS_TOKEN` 登录。本项目里提到 qCoder 时，统一按 Qoder 理解。 | [Qoder CLI quick start](https://docs.qoder.com/en/cli/quick-start) |
 | Trae Agent CLI | 可以 | `CODEX_COMMAND=trae-cli`，`CODEX_ARGS=["interactive"]` | 使用开源 `trae-agent` CLI。一次性任务可以在 shell 里运行 `trae-cli run "<task>"`，或写 wrapper。 | [trae-agent README](https://github.com/bytedance/trae-agent/blob/main/README.md) |
 | Qwen Code | 可以 | `CODEX_COMMAND=qwen` | 安装 `@qwen-code/qwen-code`，运行 `qwen`，再通过 `/auth` 配置账号或 API key。 | [Qwen Code](https://github.com/QwenLM/qwen-code) |
+| 腾讯 CodeBuddy Code | 可以 | `CODEX_COMMAND=codebuddy` | 安装 `@tencent-ai/codebuddy-code`，确认 `codebuddy --version` 可用，再在项目目录运行 `codebuddy` 完成登录和权限确认。 | [CodeBuddy Code 安装指南](https://copilot.tencent.com/docs/cli/installation) |
+| 腾讯 CloudBase AI CLI | 可以，作为统一入口 | `CODEX_COMMAND=tcb`，`CODEX_ARGS=["ai","-a","codebuddy"]` | 适合 CloudBase 或腾讯云开发场景；先登录 CloudBase CLI，再用 `tcb ai` 选择 CodeBuddy、Qwen Code 等后端工具。 | [CloudBase AI CLI](https://docs.cloudbase.net/cli-v1/ai/introduce) |
+| 华为 CodeArts Agent / 码道 CLI | 可以 | `CODEX_COMMAND=codearts` | 安装码道 CLI 后，在项目目录运行 `codearts` 并通过浏览器授权；非交互任务可用 `codearts run "<message>"`。 | [快速入门](https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0002.html) / [命令参考](https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0034.html) |
+| Kimi Code CLI | 可以 | `CODEX_COMMAND=kimi` | 安装 `@moonshot-ai/kimi-code` 或官方安装脚本，确认 `kimi --version`，首次进入后用 `/login` 登录。 | [Kimi Code 快速开始](https://www.kimi.com/code/docs/kimi-code-cli/guides/getting-started.html) |
 | Kiro CLI | 可以 | `CODEX_COMMAND=kiro-cli`，`CODEX_ARGS=["chat"]` | 安装 Kiro CLI，完成浏览器登录，再从项目目录启动 chat。 | [Kiro CLI installation](https://kiro.dev/docs/cli/installation/) |
 | GitHub Copilot CLI | 可以，前提是安装独立 CLI | `CODEX_COMMAND=copilot` | 安装 Copilot CLI，确认组织策略允许使用，并完成登录。如果只有 `gh copilot`，建议用 wrapper 脚本。 | [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/cli-getting-started) |
 | Aider | 可以 | `CODEX_COMMAND=aider` | 安装 `aider-chat`，配置模型/API 凭据，然后在 repo 中启动。 | [Aider installation](https://aider.chat/docs/install.html) |
 | Goose CLI | 可以 | `CODEX_COMMAND=goose`，`CODEX_ARGS=["session"]` | 安装 CLI，配置 LLM provider，然后运行 `goose session`。 | [Goose installation](https://goose-docs.ai/docs/getting-started/installation/) |
 | Windsurf / Devin Desktop | 间接配合 | `CODEX_COMMAND=bash` 或 `powershell` | 在 IDE 内使用 Cascade 和增强终端；`chat2ide` 用来从手机查看同一仓库的 shell、测试、git 和其他 CLI agent。 | [Terminal and Cascade docs](https://docs.devin.ai/desktop/terminal) |
 | Trae IDE | 间接配合，除非使用 `trae-agent` | 直接 PTY 控制请用 `trae-cli` | `chat2ide` 不做远程桌面，也不接管 IDE 插件状态。 | [trae-agent README](https://github.com/bytedance/trae-agent/blob/main/README.md) |
+
+### 国内平台补充状态
+
+这些工具在国内团队里常见，但不是所有形态都能直接被 `chat2ide` 接管。判断标准仍然只有一个：有没有公开、可在 PTY 中运行的终端 CLI。
+
+| 平台 | 当前状态 | 说明 | 参考 |
+| --- | --- | --- | --- |
+| 通义灵码 Lingma IDE / 插件 | 等待开发 / 间接配合 | 公开文档以 Lingma IDE、VS Code / JetBrains 插件和 Agent 模式为主，未确认独立终端 CLI。阿里系终端接入优先使用 Qoder 或 Qwen Code。 | [Lingma IDE 快速开始](https://help.aliyun.com/zh/lingma/user-guide/lingma-ide-get-started) |
+| 百度 Comate / 文心快码 | 等待开发 / 间接配合 | 公开文档说明 Agent 在 Comate 插件或 Comate AI IDE 内使用；未确认可直接作为 `CODEX_COMMAND` 的独立 CLI。 | [Comate Agent 概述](https://cloud.baidu.com/doc/COMATE/s/9mm5qvpb4) |
+| MarsCode / Trae IDE | 间接配合，CLI 走 `trae-agent` | MarsCode / Trae IDE 是 IDE、云工作台或插件体验；需要终端接管时使用 `trae-cli`。 | [MarsCode](https://www.marscode.com/home) |
+| CodeGeeX | 等待开发 / 间接配合 | 官方产品以 IDE 插件和企业版为主，未确认官方终端原生 coding-agent CLI。 | [CodeGeeX](https://www.codegeex.cn/) |
+| CodeBuddy IDE / 插件 | 间接配合，CLI 走 `codebuddy` | GUI 和插件状态不被远程控制；直接 PTY 接入使用 CodeBuddy Code CLI。 | [CodeBuddy 产品介绍](https://copilot.tencent.com/docs/ide/Introduction) |
+| CodeArts Snap / IDE 插件 | 间接配合，CLI 走 `codearts` | 插件和 IDE 助手不被远程控制；直接 PTY 接入使用 CodeArts Agent / 码道 CLI。 | [CodeArts Agent CLI](https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0001.html) |
 
 常见配置：
 
@@ -107,6 +124,34 @@ CODEX_CWD=/srv/your-project
 ```dotenv
 # Qwen Code
 CODEX_COMMAND=qwen
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# 腾讯 CodeBuddy Code
+CODEX_COMMAND=codebuddy
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# 腾讯 CloudBase AI CLI，使用 CodeBuddy Code
+CODEX_COMMAND=tcb
+CODEX_ARGS=["ai","-a","codebuddy"]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# 华为 CodeArts Agent / 码道 CLI
+CODEX_COMMAND=codearts
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Kimi Code CLI
+CODEX_COMMAND=kimi
 CODEX_ARGS=[]
 CODEX_CWD=/srv/your-project
 ```
@@ -297,7 +342,7 @@ flowchart LR
   App --> Auth["PIN session<br/>HttpOnly cookie"]
   App <-->|REST + /ws| Manager["Session manager<br/>限制 + 回放缓存"]
   Manager --> PTY["node-pty<br/>真实 PTY"]
-  PTY <-->|stdin / stdout / resize| CLI["AI coding CLI<br/>codex / claude / gemini / cursor-agent / qodercli / custom"]
+  PTY <-->|stdin / stdout / resize| CLI["AI coding CLI<br/>codex / qodercli / codebuddy / codearts / kimi / custom"]
   CLI <-->|文件 / 测试 / git| Repo["项目目录<br/>CODEX_CWD"]
 ```
 
@@ -332,7 +377,8 @@ sequenceDiagram
 
 这些不是当前承诺已经完成的功能，而是后续可以继续增强的方向：
 
-- 平台预设：在 UI 或配置里直接选择 Codex、Qoder、Claude Code、Gemini、Cursor Agent 等常用 CLI。
+- 平台预设：在 UI 或配置里直接选择 Codex、Qoder、CodeBuddy、CodeArts、Kimi、Qwen Code、Claude Code、Gemini、Cursor Agent 等常用 CLI。
+- 国内平台跟进：通义灵码、文心快码、MarsCode、CodeGeeX 等如果发布可独立运行的终端 CLI，再补成直接接入预设。
 - Qoder 专项验收：增加 `qodercli` 的 smoke test 文档或脚本，覆盖安装、登录、启动、终端输出四步。
 - Wrapper 模板：提供 `scripts/run-qoder.sh`、`scripts/run-claude.sh` 等示例，方便带参数启动不同 agent。
 - 任务通知：长任务完成、终端异常退出、后台有未读输出时推送通知。
