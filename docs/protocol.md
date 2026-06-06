@@ -133,6 +133,14 @@
 
 注意：创建后状态是 `starting`。首次 WebSocket `attach` 后才会真正启动 PTY。
 
+如果达到 `TERMINAL_MAX_SESSIONS`，会返回 `400`：
+
+```json
+{
+  "error": "已达到终端数量上限 (8)"
+}
+```
+
 ### `PATCH /api/terminals/:id`
 
 ```json
@@ -194,6 +202,8 @@
 
 - 请求必须携带登录 cookie。
 - 如果设置了 `APP_PUBLIC_ORIGIN`，WebSocket `Origin` 必须完全匹配。
+- 单条消息不能超过 `APP_WS_MAX_MESSAGE_BYTES`。
+- `input.data` 不能超过 `TERMINAL_MAX_INPUT_BYTES`。
 - 非法消息会被忽略。
 
 ## Client -> Server

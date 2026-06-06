@@ -38,6 +38,15 @@
 
 如果设置 `APP_PUBLIC_ORIGIN`，WebSocket 请求的 `Origin` 必须完全匹配。
 
+### 资源上限
+
+- `TERMINAL_MAX_SESSIONS` 限制同时存在的 PTY 终端数量。
+- `TERMINAL_MAX_INPUT_BYTES` 限制单次写入 PTY 的输入大小。
+- `APP_WS_MAX_MESSAGE_BYTES` 限制 WebSocket 单条消息大小。
+- 登录失败记录会在 `APP_LOGIN_ATTEMPT_WINDOW_SECONDS` 后过期，避免长期运行时无界增长。
+
+这些限制用于防误用和降低暴露入口被滥用时的资源消耗，不是权限隔离或命令沙箱。
+
 ## 生产建议
 
 - 始终监听 `127.0.0.1`，不要直接绑定公网地址。
@@ -45,6 +54,7 @@
 - Cloudflare Tunnel 后保持 `APP_TRUST_PROXY=1`。
 - 用最小权限系统账户运行。
 - 把 `CODEX_CWD` 限制到具体项目目录。
+- 根据服务器规格设置 `TERMINAL_MAX_SESSIONS`，不要让单用户入口无限创建 PTY。
 - 保护 `.env` 文件，尤其是 PIN hash 和运行配置。
 - 保护服务器 SSH 和 Cloudflare 账户。
 

@@ -85,7 +85,7 @@ journalctl -u chat2ide -f
 cd /srv/chat2ide
 git pull
 npm install
-npm run typecheck
+npm run test
 npm run build
 npm run preflight
 sudo systemctl restart chat2ide
@@ -98,4 +98,5 @@ sudo systemctl restart chat2ide
 - 用专门的低权限系统账户运行服务。
 - 把 `CODEX_CWD` 指向具体项目目录，不要指向 `/` 或整个 home。
 - 不要把服务直接监听公网地址。
+- 根据机器规格调整 `TERMINAL_MAX_SESSIONS`、`TERMINAL_MAX_INPUT_BYTES` 和 `APP_WS_MAX_MESSAGE_BYTES`。
 - Cloudflare 账户、服务器 SSH 和 `.env` 文件都需要按敏感资产保护。

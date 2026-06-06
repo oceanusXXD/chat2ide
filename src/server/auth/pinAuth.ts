@@ -6,6 +6,7 @@ import { AuthSession, SessionManager } from './sessionManager';
 export interface PinAuthSettings {
   maxFailedAttempts: number;
   lockoutMs: number;
+  attemptWindowMs: number;
   pinSource: PinSource;
 }
 
@@ -22,6 +23,7 @@ export class PinAuthError extends Error {
 
 interface AttemptState {
   count: number;
+  lastFailedAt: number;
   lockedUntil?: number;
 }
 
@@ -34,6 +36,7 @@ export class PinAuthService {
   ) {}
 
   login(pin: string, clientKey: string, now = new Date()): AuthSession {
+    this.pruneStaleAttempts(now);
     const normalizedPin = pin.trim();
     if (!normalizedPin) {
       this.recordFailure(clientKey, now);
@@ -64,6 +67,18 @@ export class PinAuthService {
     return this.sessions.getSession(sessionId);
   }
 
+  pruneStaleAttempts(now = new Date()): void {
+    const nowMs = now.getTime();
+    for (const [clientKey, state] of this.attempts.entries()) {
+      const lockStillActive = state.lockedUntil && state.lockedUntil > nowMs;
+      const failureStillRelevant =
+        nowMs - state.lastFailedAt <= this.settings.attemptWindowMs;
+      if (!lockStillActive && !failureStillRelevant) {
+        this.attempts.delete(clientKey);
+      }
+    }
+  }
+
   private getRetryAfterSeconds(clientKey: string, now: Date): number {
     const state = this.attempts.get(clientKey);
     if (!state?.lockedUntil) {
@@ -82,9 +97,12 @@ export class PinAuthService {
       return;
     }
 
-    const nextCount = (current?.count ?? 0) + 1;
+    const withinAttemptWindow =
+      current && now.getTime() - current.lastFailedAt <= this.settings.attemptWindowMs;
+    const nextCount = (withinAttemptWindow ? current.count : 0) + 1;
     const nextState: AttemptState = {
       count: nextCount,
+      lastFailedAt: now.getTime(),
     };
 
     if (nextCount >= this.settings.maxFailedAttempts) {

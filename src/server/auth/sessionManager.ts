@@ -13,6 +13,7 @@ export class SessionManager {
   constructor(private readonly sessionTtlMs: number) {}
 
   createSession(now = new Date()): AuthSession {
+    this.pruneExpired(now);
     const session: AuthSession = {
       id: createSessionId(),
       createdAt: now.toISOString(),

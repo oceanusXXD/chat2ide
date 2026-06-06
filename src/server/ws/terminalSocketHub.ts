@@ -1,6 +1,6 @@
 import http from 'http';
 
-import cookie from 'cookie';
+import * as cookie from 'cookie';
 import { WebSocket, WebSocketServer } from 'ws';
 
 import {
@@ -19,6 +19,7 @@ interface AuthenticatedSocket {
 
 export interface TerminalSocketHubOptions {
   cookieName: string;
+  maxPayloadBytes: number;
   publicOrigin?: string;
 }
 
@@ -34,6 +35,7 @@ export class TerminalSocketHub {
     private readonly options: TerminalSocketHubOptions,
   ) {
     this.wsServer = new WebSocketServer({
+      maxPayload: this.options.maxPayloadBytes,
       server,
       path: '/ws',
     });
@@ -96,12 +98,10 @@ export class TerminalSocketHub {
         case 'attach': {
           try {
             const replay = this.terminals.getReplay(message.terminalId);
-            // 单个浏览器客户端同一时间只保留一个活动输出流。
-            // 这样多后台高速输出时，不会把所有 terminal 的字节流同时压到前端。
+            // A browser subscribes to one live output stream at a time.
             client.attachedTerminalIds.clear();
             client.attachedTerminalIds.add(message.terminalId);
-            // Reset first, then replay buffered PTY chunks in order, then keep
-            // streaming live output for the attached terminal.
+            // Reset, replay buffered chunks, then stream live output.
             this.send(client.socket, {
               type: 'terminal_reset',
               terminalId: message.terminalId,

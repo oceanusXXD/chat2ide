@@ -30,7 +30,7 @@ export function useTerminalSocket({
   const retryDelayRef = useRef(1000);
   const reconnectNowRef = useRef(false);
 
-  // 用 ref 持有最新回调，避免纯 UI 状态变化触发整条 WebSocket 生命周期重建。
+  // Keep callbacks fresh without rebuilding the socket for UI-only state changes.
   useEffect(() => {
     latestOnMessageRef.current = onMessage;
   }, [onMessage]);
@@ -84,8 +84,7 @@ export function useTerminalSocket({
         setConnectionEpoch((current) => current + 1);
         reconnectNowRef.current = false;
         latestOnOpenRef.current();
-        // Cloudflare 和移动网络都可能留下半开连接。
-        // 定时 ping 并等待 pong，可以让客户端主动恢复，而不是一直挂在死连接上。
+        // Cloudflare and mobile networks can leave half-open sockets behind.
         pingTimerRef.current = window.setInterval(() => {
           if (socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ type: 'ping' } satisfies ClientWsMessage));
@@ -129,7 +128,7 @@ export function useTerminalSocket({
           return;
         }
         if (reconnectNowRef.current) {
-          // 用户主动点击 reconnect 时，不走退避等待，直接重连。
+          // Manual reconnect skips backoff.
           reconnectNowRef.current = false;
           connect();
           return;

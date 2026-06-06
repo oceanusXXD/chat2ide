@@ -40,8 +40,7 @@ export class CodexPtyRunner {
     }
 
     try {
-      // 这里必须使用 PTY，而不是普通 stdout/stderr 管道。
-      // 目标是尽量保留真实终端语义，包括 ANSI、光标控制、交互式输入和窗口尺寸变化。
+      // Use a PTY so ANSI output, prompts, and interactive input behave like a terminal.
       const ptyProcess = spawnPty(this.options.command, this.options.args, {
         name: 'xterm-256color',
         cols: this.cols,
@@ -111,6 +110,7 @@ export class CodexPtyRunner {
 
   dispose(force = false): void {
     this.pendingRestart = false;
+    this.clearKillTimer();
     this.terminate(force ? 'SIGKILL' : 'SIGTERM');
   }
 
@@ -144,7 +144,7 @@ export class CodexPtyRunner {
       return;
     }
 
-    // 先尝试优雅退出；若底层 CLI 卡住，再升级为强杀，避免遗留孤儿进程。
+    // Escalate if the CLI ignores SIGTERM.
     this.clearKillTimer();
     this.killTimer = setTimeout(() => {
       if (this.process === activeProcess) {

@@ -2,7 +2,7 @@ import fs from 'fs';
 import http from 'http';
 import path from 'path';
 
-import cookie from 'cookie';
+import * as cookie from 'cookie';
 import express, { NextFunction, Request, Response } from 'express';
 
 import {
@@ -21,6 +21,7 @@ const config = loadConfig();
 const sessions = new SessionManager(config.auth.sessionTtlMs);
 const auth = new PinAuthService(
   {
+    attemptWindowMs: config.auth.attemptWindowMs,
     maxFailedAttempts: config.auth.maxFailedAttempts,
     lockoutMs: config.auth.lockoutMs,
     pinSource: config.auth.pinSource,
@@ -181,7 +182,12 @@ if (fs.existsSync(staticRoot)) {
   app.use(express.static(staticRoot, { index: false }));
 }
 
-app.get('*', (_request, response) => {
+app.use((request, response, next) => {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    next();
+    return;
+  }
+
   const indexPath = path.join(staticRoot, 'index.html');
   if (!fs.existsSync(indexPath)) {
     response
@@ -204,8 +210,16 @@ app.use((error: unknown, _request: Request, response: Response, _next: NextFunct
 const server = http.createServer(app);
 const socketHub = new TerminalSocketHub(server, sessions, terminals, {
   cookieName: config.auth.cookieName,
+  maxPayloadBytes: config.ws.maxPayloadBytes,
   publicOrigin: config.publicOrigin,
 });
+
+const maintenanceTimer = setInterval(() => {
+  const now = new Date();
+  sessions.pruneExpired(now);
+  auth.pruneStaleAttempts(now);
+}, 60_000);
+maintenanceTimer.unref();
 
 server.listen(config.port, config.host, () => {
   const external = config.publicOrigin ? `, public=${config.publicOrigin}` : '';
@@ -220,6 +234,7 @@ server.listen(config.port, config.host, () => {
 });
 
 const shutdown = () => {
+  clearInterval(maintenanceTimer);
   socketHub.dispose();
   terminals.dispose();
   sessions.pruneExpired();
@@ -290,8 +305,7 @@ function shouldUseSecureCookies(request: Request): boolean {
   if (request.secure) {
     return true;
   }
-  // In auto mode, only trust forwarded HTTPS information when the app is
-  // explicitly configured behind a reverse proxy such as Cloudflare Tunnel.
+  // Only trust forwarded HTTPS when proxy support is explicitly enabled.
   if (config.trustProxy) {
     const forwardedProto = request.headers['x-forwarded-proto'];
     if (typeof forwardedProto === 'string') {

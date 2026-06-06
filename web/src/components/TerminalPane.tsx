@@ -73,8 +73,7 @@ function TerminalPaneInner({
       return;
     }
 
-    // 每个 terminal tab 都维护一个独立的 xterm 实例。
-    // 这样可以保证多终端切换时不串画面，也能保留各自的滚动与可见状态。
+    // Keep one xterm instance per tab so scrollback and viewport state do not mix.
     const terminal = new Terminal({
       allowTransparency: true,
       convertEol: false,
@@ -126,7 +125,7 @@ function TerminalPaneInner({
         terminal.write(data);
       },
       prepareForReplay() {
-        // attach/reconnect 前先清空当前可见内容，再按服务端 ring buffer 回放。
+        // Clear before replaying the server ring buffer.
         terminal.reset();
       },
       fit() {

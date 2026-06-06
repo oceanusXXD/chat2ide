@@ -1,10 +1,25 @@
 {
   "name": "chat2ide",
   "version": "1.0.0",
-  "private": true,
   "description": "Self-hosted browser and mobile terminal for long-running Codex CLI sessions",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oceanusXXD/chat2ide.git"
+  },
+  "bugs": {
+    "url": "https://github.com/oceanusXXD/chat2ide/issues"
+  },
+  "homepage": "https://github.com/oceanusXXD/chat2ide#readme",
+  "keywords": [
+    "codex",
+    "terminal",
+    "self-hosted",
+    "xterm",
+    "cloudflare-tunnel"
+  ],
   "engines": {
-    "node": ">=16.20.0"
+    "node": ">=20.19.0"
   },
   "scripts": {
     "dev:server": "tsx watch src/server/index.ts",
@@ -14,33 +29,35 @@
     "build:server": "tsc -p tsconfig.server.json",
     "build:web": "vite build",
     "preflight": "node scripts/preflight.mjs",
+    "test": "npm run typecheck && npm run test:unit",
+    "test:unit": "npm run build:server && node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p web/tsconfig.json",
     "start": "node dist/server/index.js"
   },
   "dependencies": {
-    "cookie": "^0.6.0",
-    "express": "^4.21.2",
+    "cookie": "^1.1.1",
+    "express": "^5.2.1",
     "lucide-react": "^0.468.0",
     "node-pty": "^1.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "ws": "^8.18.3",
+    "ws": "^8.21.0",
     "xterm": "^5.3.0",
     "xterm-addon-fit": "^0.8.0"
   },
   "devDependencies": {
-    "@types/express": "^5.0.1",
-    "@types/node": "^18.19.72",
+    "@types/express": "^5.0.6",
+    "@types/node": "^20.19.42",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/ws": "^8.5.14",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.0.2",
     "autoprefixer": "^10.4.20",
     "concurrently": "^8.2.2",
-    "postcss": "^8.4.49",
+    "postcss": "^8.5.15",
     "tailwindcss": "^3.4.17",
-    "tsx": "^3.14.0",
+    "tsx": "^4.22.4",
     "typescript": "^5.8.3",
-    "vite": "^4.5.5"
+    "vite": "^8.0.16"
   }
 }

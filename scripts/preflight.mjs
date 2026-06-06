@@ -43,13 +43,13 @@ child.onExit(() => {
 `;
 
 const checks = [];
+const warnings = [];
 let ptyModule = null;
 let codexArgs = [];
 
 check('Node.js version is supported', () => {
-  const major = Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10);
-  return major >= 16;
-}, `current: ${process.version}, required: >=16.20.0`);
+  return isNodeVersionAtLeast(20, 19, 0);
+}, `current: ${process.version}, required: >=20.19.0`);
 
 check('node-pty can be loaded', () => {
   try {
@@ -62,6 +62,20 @@ check('node-pty can be loaded', () => {
 
 const pinConfigured = Boolean(trim(env.APP_PIN) || trim(env.APP_PIN_HASH));
 check('APP_PIN or APP_PIN_HASH is configured', () => pinConfigured);
+
+if (trim(env.APP_PIN_HASH)) {
+  check('APP_PIN_HASH format is valid', () => isValidPinHash(trim(env.APP_PIN_HASH)));
+}
+
+warn(
+  'APP_PIN is still the env.example default; use APP_PIN_HASH for production',
+  trim(env.APP_PIN) === '123456',
+);
+
+warn(
+  'APP_PUBLIC_ORIGIN is not configured; production WebSocket origin checks are weaker',
+  !trim(env.APP_PUBLIC_ORIGIN) && !trim(env.APP_BASE_URL),
+);
 
 const cwd = path.resolve(
   trim(env.CODEX_CWD) ||
@@ -124,11 +138,34 @@ if (trim(env.APP_PUBLIC_ORIGIN)) {
   }, trim(env.APP_PUBLIC_ORIGIN));
 }
 
+for (const name of [
+  'APP_PORT',
+  'APP_SESSION_TTL_HOURS',
+  'APP_LOGIN_MAX_ATTEMPTS',
+  'APP_LOGIN_LOCKOUT_SECONDS',
+  'APP_LOGIN_ATTEMPT_WINDOW_SECONDS',
+  'TERMINAL_DEFAULT_COLS',
+  'TERMINAL_DEFAULT_ROWS',
+  'TERMINAL_BUFFER_BYTES',
+  'TERMINAL_BUFFER_KB',
+  'TERMINAL_MAX_SESSIONS',
+  'TERMINAL_MAX_INPUT_BYTES',
+  'APP_WS_MAX_MESSAGE_BYTES',
+]) {
+  if (trim(env[name])) {
+    check(`${name} is a positive integer`, () => isPositiveInteger(trim(env[name])));
+  }
+}
+
 const failed = checks.filter((item) => !item.ok);
 for (const item of checks) {
   const prefix = item.ok ? '[ok]' : '[fail]';
   const detail = item.detail ? ` (${item.detail})` : '';
   console.log(`${prefix} ${item.name}${detail}`);
+}
+
+for (const item of warnings) {
+  console.log(`[warn] ${item}`);
 }
 
 if (failed.length > 0) {
@@ -150,6 +187,12 @@ function check(name, predicate, detail = '') {
     ok,
     detail,
   });
+}
+
+function warn(message, condition) {
+  if (condition) {
+    warnings.push(message);
+  }
 }
 
 function trim(value) {
@@ -221,4 +264,35 @@ function parseArgs(value) {
 
 function shellQuote(value) {
   return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function isNodeVersionAtLeast(requiredMajor, requiredMinor, requiredPatch) {
+  const [major = 0, minor = 0, patch = 0] = process.versions.node
+    .split('.')
+    .map((part) => Number.parseInt(part, 10));
+  if (major !== requiredMajor) {
+    return major > requiredMajor;
+  }
+  if (minor !== requiredMinor) {
+    return minor > requiredMinor;
+  }
+  return patch >= requiredPatch;
+}
+
+function isPositiveInteger(value) {
+  return /^[1-9]\d*$/.test(value);
+}
+
+function isValidPinHash(value) {
+  const parts = value.includes('$') ? value.split('$') : value.split(':');
+  return (
+    parts.length === 3 &&
+    parts[0] === 'scrypt' &&
+    isEvenHex(parts[1]) &&
+    isEvenHex(parts[2])
+  );
+}
+
+function isEvenHex(value) {
+  return Boolean(value) && value.length % 2 === 0 && /^[0-9a-f]+$/i.test(value);
 }

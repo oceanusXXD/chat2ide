@@ -29,6 +29,8 @@ export interface TerminalManagerOptions {
   defaultCols: number;
   defaultRows: number;
   bufferBytes: number;
+  maxSessions: number;
+  maxInputBytes: number;
   codexCommand: string;
   codexArgs: string[];
 }
@@ -58,6 +60,10 @@ export class TerminalSessionManager {
   }
 
   createSession(request: CreateTerminalRequest = {}): TerminalSummary {
+    if (this.sessions.size >= this.options.maxSessions) {
+      throw new Error(`已达到终端数量上限 (${this.options.maxSessions})`);
+    }
+
     const id = crypto.randomUUID();
     const nowIso = new Date().toISOString();
     const cols = normalizeCols(request.cols, this.options.defaultCols);
@@ -95,8 +101,7 @@ export class TerminalSessionManager {
       if (session.closed) {
         return;
       }
-      // PTY 输出在整条链路里都保持原样。
-      // manager 只维护生命周期状态和 ring buffer，不把终端内容重组为消息模型。
+      // Keep PTY bytes raw; the manager only tracks lifecycle and replay state.
       switch (event.type) {
         case 'spawn':
           session.restartRequested = false;
@@ -183,7 +188,7 @@ export class TerminalSessionManager {
     const session = this.requireSession(id);
     return {
       summary: { ...session.summary },
-      // 重连时先回放最近输出，再继续接实时流，保证前端终端视图能平滑恢复。
+      // Replay recent output before live data on reconnect.
       chunks: session.buffer.snapshot(),
     };
   }
@@ -193,17 +198,18 @@ export class TerminalSessionManager {
     if (!session.pendingInitialAttach) {
       return;
     }
-    // 首次 attach 到浏览器 xterm 后再启动 CLI。
-    // 这样启动阶段的终端查询就有机会被真实终端模拟器回答，而不是超时退出。
+    // Start only after xterm is attached, so startup prompts have a terminal.
     session.pendingInitialAttach = false;
     session.runner.start();
   }
 
   sendInput(id: string, data: string): void {
     const session = this.requireSession(id);
+    if (Buffer.byteLength(data, 'utf8') > this.options.maxInputBytes) {
+      throw new Error(`输入过大，单次最多 ${this.options.maxInputBytes} 字节`);
+    }
     session.runner.write(data);
-    // 原始按键输入已经通过 PTY 流和后续输出体现给前端。
-    // 这里如果每个按键都广播 terminal_updated，会把前端拖进高频无效重渲染。
+    // Do not broadcast per-key updates; PTY output carries visible changes.
   }
 
   resize(id: string, cols: number, rows: number): void {
@@ -215,7 +221,7 @@ export class TerminalSessionManager {
       return;
     }
 
-    session.runner.resize(cols, rows);
+    session.runner.resize(nextCols, nextRows);
     session.summary = {
       ...session.summary,
       cols: nextCols,
@@ -227,6 +233,20 @@ export class TerminalSessionManager {
 
   stop(id: string): void {
     const session = this.requireSession(id);
+    if (!session.runner.isRunning()) {
+      session.restartRequested = false;
+      session.pendingInitialAttach = false;
+      if (session.summary.status !== 'stopped') {
+        session.summary = {
+          ...session.summary,
+          status: 'stopped',
+          pid: null,
+          updatedAt: new Date().toISOString(),
+        };
+        this.emit({ type: 'terminal_updated', item: { ...session.summary } });
+      }
+      return;
+    }
     session.runner.stop();
   }
 
@@ -234,8 +254,7 @@ export class TerminalSessionManager {
     const session = this.requireSession(id);
     session.restartRequested = true;
     session.buffer.clear();
-    // restart 的语义是“清空当前可见终端并启动新一代 PTY”。
-    // 前端收到 terminal_reset 后会先清屏，再接回放和新流。
+    // Restart means a cleared view and a new PTY generation.
     session.summary = {
       ...session.summary,
       status: 'starting',
@@ -253,7 +272,7 @@ export class TerminalSessionManager {
   close(id: string): void {
     const session = this.requireSession(id);
     session.closed = true;
-    // UI 已经认为标签被移除，底层 PTY 也必须同步强制清理，避免残留 shell。
+    // Closing a tab must also kill the underlying PTY.
     session.runner.dispose(true);
     this.sessions.delete(id);
     this.emit({ type: 'terminal_closed', terminalId: id });
@@ -262,7 +281,7 @@ export class TerminalSessionManager {
   dispose(): void {
     for (const session of this.sessions.values()) {
       session.closed = true;
-      session.runner.dispose();
+      session.runner.dispose(true);
     }
     this.sessions.clear();
   }

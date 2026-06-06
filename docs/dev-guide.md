@@ -4,7 +4,7 @@
 
 ## 安装依赖
 
-跨平台推荐：
+安装：
 
 ```bash
 npm install
@@ -82,8 +82,10 @@ Linux 便捷脚本：
 ## 代码检查
 
 ```bash
-npm run typecheck
+npm run test
 ```
+
+`npm run test` 会先做前后端 TypeScript 检查，再构建服务端并运行 Node 单元测试。
 
 生产构建：
 
@@ -115,7 +117,7 @@ node dist/server/index.js
 npm run preflight
 ```
 
-这个命令会读取 `.env` 和 `.env.local`，检查 Node、`node-pty`、PIN、`CODEX_CWD`、`CODEX_ARGS`、`CODEX_COMMAND`、PTY runtime 和 `APP_PUBLIC_ORIGIN`。
+这个命令会读取 `.env` 和 `.env.local`，检查 Node、`node-pty`、PIN、`CODEX_CWD`、`CODEX_ARGS`、`CODEX_COMMAND`、PTY runtime、`APP_PUBLIC_ORIGIN`、PIN hash 格式和资源上限。
 
 在本地开发时，如果没有安装真实 Codex CLI，可以用 shell 命令覆盖：
 

@@ -33,12 +33,12 @@ export function LoginPage({ busy, error, onSubmit }: LoginPageProps) {
               PIN
             </span>
             <input
-              autoComplete="one-time-code"
-              className="w-full rounded-lg border border-white/10 bg-slate-900/90 px-4 py-3 text-center font-mono text-2xl tracking-[0.42em] text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-accent focus:ring-2 focus:ring-accent/40"
+              autoComplete="current-password"
+              className="w-full rounded-lg border border-white/10 bg-slate-900/90 px-4 py-3 font-mono text-lg tracking-normal text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-accent focus:ring-2 focus:ring-accent/40"
               enterKeyHint="done"
-              inputMode="numeric"
-              maxLength={12}
-              placeholder="000000"
+              inputMode="text"
+              maxLength={128}
+              placeholder="PIN 或访问短语"
               spellCheck={false}
               type="password"
               value={pin}

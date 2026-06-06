@@ -19,6 +19,7 @@ export interface AppConfig {
     sessionTtlMs: number;
     maxFailedAttempts: number;
     lockoutMs: number;
+    attemptWindowMs: number;
     pinSource: PinSource;
   };
   terminal: {
@@ -26,8 +27,13 @@ export interface AppConfig {
     defaultCols: number;
     defaultRows: number;
     bufferBytes: number;
+    maxSessions: number;
+    maxInputBytes: number;
     codexCommand: string;
     codexArgs: string[];
+  };
+  ws: {
+    maxPayloadBytes: number;
   };
 }
 
@@ -57,7 +63,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
   return {
     host: firstDefined(runtimeEnv, 'APP_HOST', 'HOST') || '127.0.0.1',
-    port: readInt(firstDefined(runtimeEnv, 'APP_PORT', 'PORT'), 3000),
+    port: readPositiveInt(
+      firstDefined(runtimeEnv, 'APP_PORT', 'PORT'),
+      3000,
+      'APP_PORT',
+    ),
     publicOrigin,
     trustProxy: readBoolean(
       firstDefined(runtimeEnv, 'APP_TRUST_PROXY', 'TRUST_PROXY'),
@@ -71,18 +81,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
         firstDefined(runtimeEnv, 'APP_COOKIE_SECURE'),
       ),
       sessionTtlMs:
-        readInt(
+        readPositiveInt(
           firstDefined(
             runtimeEnv,
             'APP_SESSION_TTL_HOURS',
             'SESSION_TTL_HOURS',
           ),
           24,
+          'APP_SESSION_TTL_HOURS',
         ) *
         60 *
         60 *
         1000,
-      maxFailedAttempts: readInt(
+      maxFailedAttempts: readPositiveInt(
         firstDefined(
           runtimeEnv,
           'APP_LOGIN_MAX_ATTEMPTS',
@@ -90,40 +101,69 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
           'LOGIN_MAX_FAILURES',
         ),
         5,
+        'APP_LOGIN_MAX_ATTEMPTS',
       ),
       lockoutMs: readLockoutMs(runtimeEnv),
+      attemptWindowMs:
+        readPositiveInt(
+          firstDefined(
+            runtimeEnv,
+            'APP_LOGIN_ATTEMPT_WINDOW_SECONDS',
+            'LOGIN_ATTEMPT_WINDOW_SECONDS',
+          ),
+          600,
+          'APP_LOGIN_ATTEMPT_WINDOW_SECONDS',
+        ) * 1000,
       pinSource,
     },
     terminal: {
       defaultCwd,
-      defaultCols: readInt(
+      defaultCols: readPositiveInt(
         firstDefined(
           runtimeEnv,
           'TERMINAL_DEFAULT_COLS',
           'DEFAULT_TERMINAL_COLS',
         ),
         120,
+        'TERMINAL_DEFAULT_COLS',
       ),
-      defaultRows: readInt(
+      defaultRows: readPositiveInt(
         firstDefined(
           runtimeEnv,
           'TERMINAL_DEFAULT_ROWS',
           'DEFAULT_TERMINAL_ROWS',
         ),
         32,
+        'TERMINAL_DEFAULT_ROWS',
       ),
       bufferBytes: readBufferBytes(runtimeEnv),
+      maxSessions: readPositiveInt(
+        firstDefined(runtimeEnv, 'TERMINAL_MAX_SESSIONS', 'APP_MAX_TERMINALS'),
+        8,
+        'TERMINAL_MAX_SESSIONS',
+      ),
+      maxInputBytes: readPositiveInt(
+        firstDefined(runtimeEnv, 'TERMINAL_MAX_INPUT_BYTES'),
+        64 * 1024,
+        'TERMINAL_MAX_INPUT_BYTES',
+      ),
       codexCommand: firstDefined(runtimeEnv, 'CODEX_COMMAND') || 'codex',
       codexArgs: parseArgs(
         firstDefined(runtimeEnv, 'CODEX_ARGS', 'CODEX_ARGS_JSON'),
+      ),
+    },
+    ws: {
+      maxPayloadBytes: readPositiveInt(
+        firstDefined(runtimeEnv, 'APP_WS_MAX_MESSAGE_BYTES'),
+        128 * 1024,
+        'APP_WS_MAX_MESSAGE_BYTES',
       ),
     },
   };
 }
 
 function mergeRuntimeEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  // README 推荐先写 `.env`，因此服务端启动时会先读仓库根目录和当前工作目录的 env 文件。
-  // 显式导出的环境变量仍然优先，便于部署平台或启动命令覆盖默认值。
+  // Load .env first; real environment variables still win.
   const fileValues: NodeJS.ProcessEnv = {};
   for (const candidate of resolveEnvFileCandidates()) {
     if (!fs.existsSync(candidate)) {
@@ -251,6 +291,18 @@ function readInt(value: string | undefined, fallback: number): number {
   return parsed;
 }
 
+function readPositiveInt(
+  value: string | undefined,
+  fallback: number,
+  name: string,
+): number {
+  const parsed = readInt(value, fallback);
+  if (parsed <= 0) {
+    throw new Error(`${name} 必须是正整数`);
+  }
+  return parsed;
+}
+
 function readBoolean(value: string | undefined, fallback: boolean): boolean {
   if (!value?.trim()) {
     return fallback;
@@ -291,12 +343,12 @@ function readLockoutMs(env: NodeJS.ProcessEnv): number {
     'LOGIN_LOCKOUT_SECONDS',
   );
   if (seconds) {
-    return readInt(seconds, 120) * 1000;
+    return readPositiveInt(seconds, 120, 'APP_LOGIN_LOCKOUT_SECONDS') * 1000;
   }
 
   const ms = firstDefined(env, 'LOGIN_LOCKOUT_MS');
   if (ms) {
-    return readInt(ms, 120000);
+    return readPositiveInt(ms, 120000, 'LOGIN_LOCKOUT_MS');
   }
   return 120000;
 }
@@ -304,12 +356,12 @@ function readLockoutMs(env: NodeJS.ProcessEnv): number {
 function readBufferBytes(env: NodeJS.ProcessEnv): number {
   const bytes = firstDefined(env, 'TERMINAL_BUFFER_BYTES');
   if (bytes) {
-    return readInt(bytes, 256 * 1024);
+    return readPositiveInt(bytes, 256 * 1024, 'TERMINAL_BUFFER_BYTES');
   }
 
   const kilobytes = firstDefined(env, 'TERMINAL_BUFFER_KB');
   if (kilobytes) {
-    return readInt(kilobytes, 512) * 1024;
+    return readPositiveInt(kilobytes, 512, 'TERMINAL_BUFFER_KB') * 1024;
   }
   return 256 * 1024;
 }
@@ -320,7 +372,16 @@ function validatePinHash(value: string | undefined): void {
   }
 
   const parts = value.includes('$') ? value.split('$') : value.split(':');
-  if (parts.length !== 3 || parts[0] !== 'scrypt' || !parts[1] || !parts[2]) {
+  if (
+    parts.length !== 3 ||
+    parts[0] !== 'scrypt' ||
+    !isEvenHex(parts[1]) ||
+    !isEvenHex(parts[2])
+  ) {
     throw new Error('APP_PIN_HASH 格式无效，应为 scrypt$<salt>$<hash>');
   }
+}
+
+function isEvenHex(value: string): boolean {
+  return value.length > 0 && value.length % 2 === 0 && /^[0-9a-f]+$/i.test(value);
 }

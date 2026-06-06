@@ -18,7 +18,7 @@ cloudflared on the server
 
 前置条件：
 
-- Node.js 16.20+。
+- Node.js 20.19+。
 - npm。
 - 已安装并认证可用的 Codex CLI。
 - 一个低权限运行用户，例如 `chat2ide`。

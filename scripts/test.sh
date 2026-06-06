@@ -8,4 +8,5 @@ cd "${ROOT_DIR}"
 node ./node_modules/typescript/bin/tsc --noEmit -p tsconfig.server.json
 node ./node_modules/typescript/bin/tsc --noEmit -p web/tsconfig.json
 node ./node_modules/typescript/bin/tsc -p tsconfig.server.json
+node --test tests/*.test.mjs
 node ./node_modules/vite/bin/vite.js build

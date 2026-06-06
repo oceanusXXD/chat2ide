@@ -1,10 +1,10 @@
 # 手工验收
 
-目标：确认 `chat2ide` 能作为单用户远程 Codex CLI 工作台完整闭环。
+目标：确认 `chat2ide` 能完成单用户远程 Codex CLI 工作流。
 
 ## 0. 预设条件
 
-- 已运行 `npm run typecheck`。
+- 已运行 `npm run test`。
 - 已运行 `npm run build`。
 - 已运行 `npm run preflight`，或明确知道失败项是测试环境故意造成的。
 - 已配置 PIN。
