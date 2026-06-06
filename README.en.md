@@ -36,24 +36,30 @@ The mobile view is not a shrunken desktop terminal. It keeps the workspace statu
 | Remote access | Cloudflare Tunnel | Forwards a public HTTPS hostname to the local `127.0.0.1:3000` service |
 | State | Process memory and ring buffers | Keeps login sessions, PTY process handles, and recent-output replay |
 
-The default command is `codex`. To use Claude Code, Gemini CLI, Aider, or a custom AI coding wrapper, point `CODEX_COMMAND` at that command and configure `CODEX_ARGS` as needed. `chat2ide` does not call those tools through private APIs; it moves terminal bytes between the browser, WebSocket, PTY, and CLI process.
+The default command is `codex`. To use another AI coding tool, point `CODEX_COMMAND` at a real terminal command and configure `CODEX_ARGS` as needed. `chat2ide` does not call vendor private APIs; it moves terminal bytes between the browser, WebSocket, PTY, and CLI process.
 
-## Cursor, Windsurf, Trae, Qoder, and qCoder
+## AI Coding Platform Support
 
-`chat2ide` directly supports terminal-native AI coding agents: the tool must run inside a server shell, accept stdin in a PTY, and write terminal output to stdout/stderr. GUI editors can share the same host and project directory, but `chat2ide` does not remote-control editor windows, proprietary sidebars, or cloud sessions.
+`chat2ide` directly supports terminal-native AI coding agents: the tool must run inside a server shell, accept stdin in a PTY, and write terminal output to stdout/stderr. GUI editors can share the same host and project directory, but `chat2ide` does not remote-control editor windows, proprietary sidebars, browser workspaces, or vendor cloud sessions.
 
-| Platform | Direct `CODEX_COMMAND` target? | Recommended setup | Boundary |
-| --- | --- | --- | --- |
-| Codex CLI | Yes | `CODEX_COMMAND=codex` | Default target. Authenticate Codex on the server first. |
-| Claude Code | Yes | `CODEX_COMMAND=claude` | Install and sign in on the server first. |
-| Gemini CLI | Yes | `CODEX_COMMAND=gemini` | Install and sign in on the server first. |
-| Cursor Agent CLI | Yes | `CODEX_COMMAND=cursor-agent` | Uses Cursor's terminal agent. This does not control the Cursor editor GUI. |
-| Qoder CLI | Yes | `CODEX_COMMAND=qodercli` | Install and sign in to `qodercli` on the server. If you meant another `qcoder` tool, it works only if it is a terminal CLI. |
-| Trae Agent CLI | Yes, for open-source `trae-agent` | Run `trae-cli run "<task>"` inside a chat2ide shell, or wrap it as `CODEX_COMMAND` | Trae IDE is a GUI editor; use the CLI agent for PTY control. |
-| Aider / Goose / custom agents | Yes | Set `CODEX_COMMAND` to the binary or wrapper script | Works when the tool behaves like a terminal program. |
-| Windsurf | Not recommended as a direct PTY agent | Use Cascade inside Windsurf IDE; use chat2ide beside it for mobile shell, tests, git, and other CLI agents | Windsurf's core AI workflow is IDE-integrated, not a generic standalone PTY agent. |
-| Trae IDE | No GUI control | Use Trae IDE normally; use `trae-agent` or another terminal agent when mobile handoff is needed | `chat2ide` is not remote desktop and does not control IDE plugin state. |
-| GUI editors such as Cursor, Windsurf, Trae | Indirect pairing | Point the editor and `chat2ide` at the same machine, repo, git state, and test commands | Editor handles desktop interaction; `chat2ide` handles terminal streams. |
+Before calling an integration ready on a new host, verify four things: the command exists, vendor auth works under the same OS account, the CLI starts from `CODEX_CWD` in a normal terminal, and `chat2ide` can create a terminal with that `CODEX_COMMAND`.
+
+| Platform | Direct target? | `CODEX_COMMAND` / args | Recommended setup | Reference docs |
+| --- | --- | --- | --- | --- |
+| OpenAI Codex CLI | Yes | `CODEX_COMMAND=codex` | Run `codex login`, then launch from the project directory. | [Codex CLI reference](https://developers.openai.com/codex/cli/reference) |
+| Anthropic Claude Code | Yes | `CODEX_COMMAND=claude` | Run `claude auth login` or the account login flow on the server. | [Claude Code CLI reference](https://code.claude.com/docs/en/cli-reference) |
+| Google Gemini CLI | Yes | `CODEX_COMMAND=gemini` | Install `@google/gemini-cli`, run `gemini`, and complete Google authentication. | [Gemini CLI installation](https://geminicli.com/docs/get-started/installation/) |
+| Cursor Agent CLI | Yes | `CODEX_COMMAND=cursor-agent` | Install Cursor CLI and authenticate it. This controls the terminal agent, not the Cursor editor GUI. | [Cursor CLI docs](https://cursor.com/docs/cli/overview) |
+| Qoder CLI | Yes | `CODEX_COMMAND=qodercli` | Install `@qoder-ai/qodercli`, run `qodercli`, then use `/login` or `QODER_PERSONAL_ACCESS_TOKEN`. | [Qoder CLI quick start](https://docs.qoder.com/en/cli/quick-start) |
+| Trae Agent CLI | Yes | `CODEX_COMMAND=trae-cli`, `CODEX_ARGS=["interactive"]` | Use the open-source `trae-agent` CLI. For one-off tasks, run `trae-cli run "<task>"` inside a shell or wrapper. | [trae-agent](https://github.com/bytedance/trae-agent) |
+| Qwen Code | Yes | `CODEX_COMMAND=qwen` | Install `@qwen-code/qwen-code`, run `qwen`, then configure `/auth`. | [Qwen Code](https://github.com/QwenLM/qwen-code) |
+| Kiro CLI | Yes | `CODEX_COMMAND=kiro-cli`, `CODEX_ARGS=["chat"]` | Install Kiro CLI, complete browser authentication, then start chat from the project directory. | [Kiro CLI installation](https://kiro.dev/docs/cli/installation/) |
+| GitHub Copilot CLI | Yes, if the standalone CLI is installed | `CODEX_COMMAND=copilot` | Install Copilot CLI, ensure organization policy allows it, and sign in. Use a wrapper if you only have `gh copilot`. | [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/cli-getting-started) |
+| Aider | Yes | `CODEX_COMMAND=aider` | Install `aider-chat`, configure model credentials, and start it in the repo. | [Aider installation](https://aider.chat/docs/install.html) |
+| Goose CLI | Yes | `CODEX_COMMAND=goose`, `CODEX_ARGS=["session"]` | Install the CLI, configure an LLM provider, then run `goose session`. | [Goose installation](https://goose-docs.ai/docs/getting-started/installation/) |
+| Windsurf / Devin Desktop | Indirect | `CODEX_COMMAND=bash` or `powershell` | Use Cascade and the enhanced terminal inside the IDE; use `chat2ide` beside it for mobile shell, tests, git, and other CLI agents. | [Terminal and Cascade docs](https://docs.devin.ai/desktop/terminal) |
+| Trae IDE | Indirect unless using `trae-agent` | Use `trae-cli` for direct PTY control | `chat2ide` is not remote desktop and does not control IDE plugin state. | [trae-agent](https://github.com/bytedance/trae-agent) |
+| qCoder / QCoder-named tools | Only if they expose a real CLI | Point `CODEX_COMMAND` at that binary | The name is ambiguous. If you mean Qoder, use `qodercli`; otherwise validate the local `qcoder` command like any PTY program. | [Qoder CLI quick start](https://docs.qoder.com/en/cli/quick-start) if this means Qoder; otherwise the specific vendor docs |
 
 Common configurations:
 
@@ -99,6 +105,41 @@ CODEX_ARGS=[]
 CODEX_CWD=/srv/your-project
 ```
 
+```dotenv
+# Qwen Code
+CODEX_COMMAND=qwen
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Kiro CLI chat
+CODEX_COMMAND=kiro-cli
+CODEX_ARGS=["chat"]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# GitHub Copilot CLI
+CODEX_COMMAND=copilot
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Aider
+CODEX_COMMAND=aider
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Goose CLI
+CODEX_COMMAND=goose
+CODEX_ARGS=["session"]
+CODEX_CWD=/srv/your-project
+```
+
 If a platform only exposes a desktop GUI, browser workspace, or IDE plugin and has no public terminal CLI, do not set it directly as `CODEX_COMMAND`. Use `bash`/`powershell` as the command instead, then run tests, git, deployment scripts, or another real CLI agent from the mobile terminal.
 
 ## What It Is Not
@@ -111,105 +152,6 @@ If a platform only exposes a desktop GUI, browser workspace, or IDE plugin and h
 - A console that automatically redacts terminal output.
 
 After login, the user can run commands as the OS account that runs `chat2ide`. Run it with a low-privilege account and point `CODEX_CWD` at a specific project directory.
-
-## Communication Architecture
-
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {"fontFamily": "Inter, ui-sans-serif, system-ui", "primaryColor": "#0f172a", "lineColor": "#64748b"}}}%%
-flowchart TB
-  subgraph Surface["Access surface"]
-    Mobile["Mobile browser<br/>status, tabs, composer"]
-    Desktop["Desktop browser<br/>full terminal workbench"]
-  end
-
-  subgraph Ingress["Ingress"]
-    Tunnel["Cloudflare Tunnel<br/>HTTPS + WebSocket upgrade"]
-  end
-
-  subgraph App["chat2ide app process"]
-    UI["React workbench<br/>Vite static UI"]
-    Auth["PIN session guard<br/>HttpOnly cookie"]
-    API["REST API<br/>create, list, stop, restart"]
-    WSGW["WebSocket gateway<br/>attach, input, resize, replay"]
-  end
-
-  subgraph Runtime["Terminal runtime"]
-    Manager["TerminalSessionManager<br/>lifecycle + limits"]
-    Buffer["Ring buffer<br/>recent-output replay"]
-    PTY["node-pty<br/>real server-side PTY"]
-  end
-
-  subgraph Coding["AI coding environment"]
-    CLI["AI coding CLI<br/>Codex / Cursor Agent / Qoder / Trae Agent / custom"]
-    Repo["Project workspace<br/>CODEX_CWD"]
-  end
-
-  Mobile -->|HTTPS| Tunnel
-  Desktop -->|HTTPS| Tunnel
-  Tunnel -->|local HTTP| UI
-  UI --> Auth
-  UI --> API
-  UI <-->|terminal stream| WSGW
-  API --> Manager
-  WSGW --> Manager
-  Manager --> Buffer
-  Manager --> PTY
-  PTY <-->|stdin / stdout / resize| CLI
-  CLI <-->|files, tests, git| Repo
-
-  classDef surface fill:#ecfeff,stroke:#0891b2,color:#164e63
-  classDef ingress fill:#eff6ff,stroke:#2563eb,color:#1e3a8a
-  classDef app fill:#f8fafc,stroke:#475569,color:#0f172a
-  classDef runtime fill:#fff7ed,stroke:#f97316,color:#7c2d12
-  classDef coding fill:#f0fdf4,stroke:#16a34a,color:#14532d
-  class Mobile,Desktop surface
-  class Tunnel ingress
-  class UI,Auth,API,WSGW app
-  class Manager,Buffer,PTY runtime
-  class CLI,Repo coding
-```
-
-## Runtime Flow
-
-```mermaid
-sequenceDiagram
-  autonumber
-  participant User as Phone / Browser
-  participant UI as React workbench
-  participant API as Express REST
-  participant WS as WebSocket gateway
-  participant TM as TerminalSessionManager
-  participant PTY as node-pty PTY
-  participant CLI as AI coding CLI
-
-  rect rgb(239, 246, 255)
-    Note over User,API: Authenticate and create a terminal
-    User->>API: POST /api/auth/login
-    API-->>User: HttpOnly session cookie
-    User->>API: POST /api/terminals
-    API->>TM: allocate starting session
-    API-->>UI: terminal summary
-  end
-
-  rect rgb(240, 253, 244)
-    Note over UI,CLI: Attach starts the real PTY
-    UI->>WS: attach terminalId
-    WS->>TM: attach subscriber
-    TM->>PTY: spawn CODEX_COMMAND in CODEX_CWD
-    PTY->>CLI: interactive terminal process
-  end
-
-  rect rgb(255, 247, 237)
-    Note over User,CLI: Browser input becomes PTY bytes
-    CLI-->>WS: output chunks
-    WS-->>UI: render in xterm.js
-    User->>UI: send command / prompt
-    UI->>WS: input, resize, Ctrl+C
-    WS->>PTY: write bytes to PTY
-  end
-```
-
-When a terminal is created, the server stores a `starting` session first. The PTY starts only after the browser attaches over WebSocket, so startup prompts go into the real xterm view.
 
 ## Requirements
 
@@ -341,6 +283,44 @@ $env:APP_PIN="123456"; $env:CODEX_COMMAND="powershell.exe"; $env:CODEX_ARGS='["-
 ```
 
 Open `http://127.0.0.1:3000`, check that the page has no horizontal scrolling, that the status line does not crowd out the terminal, that the terminal and bottom input are visible, and send one command to confirm output appears. Send a second command and use the arrow keys in single-line input to confirm the in-memory command history recalls it.
+
+## Architecture
+
+The full design notes live in [docs/architecture.md](docs/architecture.md). The compact flow below shows the runtime path that matters for mobile control.
+
+<details>
+<summary>Compact communication architecture</summary>
+
+```mermaid
+flowchart LR
+  Browser["Phone / browser"] --> Tunnel["HTTPS + WebSocket<br/>Cloudflare Tunnel"]
+  Tunnel --> App["chat2ide<br/>React UI + Express API"]
+  App --> Auth["PIN session<br/>HttpOnly cookie"]
+  App <-->|REST + /ws| Manager["Session manager<br/>limits + replay buffer"]
+  Manager --> PTY["node-pty<br/>real PTY"]
+  PTY <-->|stdin / stdout / resize| CLI["AI coding CLI<br/>codex / claude / gemini / cursor-agent / qodercli / custom"]
+  CLI <-->|files / tests / git| Repo["Project workspace<br/>CODEX_CWD"]
+```
+
+```mermaid
+sequenceDiagram
+  participant U as Phone/browser
+  participant A as chat2ide API+WS
+  participant T as Session manager
+  participant P as node-pty
+  participant C as AI coding CLI
+  U->>A: login + create terminal
+  A->>T: allocate session
+  U->>A: attach over WebSocket
+  T->>P: spawn CODEX_COMMAND in CODEX_CWD
+  P->>C: start interactive CLI
+  U-->>C: input, resize, Ctrl+C through WS and PTY
+  C-->>U: streamed output and replay buffer
+```
+
+</details>
+
+When a terminal is created, the server stores a `starting` session first. The PTY starts only after the browser attaches over WebSocket, so startup prompts go into the real xterm view.
 
 ## Operational Boundaries
 

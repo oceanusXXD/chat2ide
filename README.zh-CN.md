@@ -36,24 +36,30 @@
 | 远程入口 | Cloudflare Tunnel | 把公网 HTTPS 域名转发到服务器本地 `127.0.0.1:3000` |
 | 状态存储 | 进程内存、ring buffer | 保存登录 session、PTY 进程句柄和最近输出回放 |
 
-默认命令是 `codex`。如果你想接入 Claude Code、Gemini CLI、Aider 或自己的 AI coding wrapper，可以把 `CODEX_COMMAND` 指向对应命令，用 `CODEX_ARGS` 配启动参数。`chat2ide` 不调用这些工具的私有 API；它只负责把手机/浏览器输入通过 WebSocket 写入真实 PTY，再把 PTY 输出流式送回网页。
+默认命令是 `codex`。如果你想接入其他 AI coding 工具，可以把 `CODEX_COMMAND` 指向一个真实存在的终端命令，用 `CODEX_ARGS` 配启动参数。`chat2ide` 不调用厂商私有 API；它只负责把手机/浏览器输入通过 WebSocket 写入真实 PTY，再把 PTY 输出流式送回网页。
 
-## Cursor、Windsurf、Trae、Qoder/qCoder 接入边界
+## AI Coding 平台接入方式
 
-`chat2ide` 支持的是“终端原生”的 AI coding agent：工具必须能在服务器 shell 里以 CLI 方式运行，并且能在 PTY 里接收 stdin、输出 stdout/stderr。GUI 编辑器本身可以和 `chat2ide` 共用同一个项目目录，但 `chat2ide` 不会远程操控编辑器窗口、插件侧边栏或云端私有会话。
+`chat2ide` 支持的是“终端原生”的 AI coding agent：工具必须能在服务器 shell 里以 CLI 方式运行，并且能在 PTY 里接收 stdin、输出 stdout/stderr。GUI 编辑器本身可以和 `chat2ide` 共用同一个项目目录，但 `chat2ide` 不会远程操控编辑器窗口、插件侧边栏、浏览器工作台或云端私有会话。
 
-| 平台 | 是否能直接作为 `CODEX_COMMAND` | 推荐接入方式 | 注意点 |
-| --- | --- | --- | --- |
-| Codex CLI | 可以 | `CODEX_COMMAND=codex` | 默认目标。先在服务器上完成 Codex 登录和项目授权。 |
-| Claude Code | 可以 | `CODEX_COMMAND=claude` | 先在服务器安装并登录。 |
-| Gemini CLI | 可以 | `CODEX_COMMAND=gemini` | 先在服务器安装并登录。 |
-| Cursor Agent CLI | 可以 | `CODEX_COMMAND=cursor-agent` | 需要先在服务器安装 Cursor CLI 并登录。适合 Cursor 的终端 agent，不等同于远程控制 Cursor 编辑器 GUI。 |
-| Qoder CLI | 可以 | `CODEX_COMMAND=qodercli` | 需要先安装并登录 `qodercli`。如果你说的是其他 `qcoder` 工具，只要它能在终端交互运行，也可以用同样方式接入。 |
-| Trae Agent CLI | 可以，针对开源 `trae-agent` | 可以在 `chat2ide` 终端里运行 `trae-cli run "<task>"`，或写 wrapper 脚本作为 `CODEX_COMMAND` | Trae IDE 是 GUI 编辑器，不能被 `chat2ide` 直接操控；可接入的是 CLI agent。 |
-| Aider / Goose / 自定义 agent | 可以 | 把 `CODEX_COMMAND` 指向对应二进制或 wrapper 脚本 | 只要它表现为终端程序，就能走同一套 PTY/WebSocket 通道。 |
-| Windsurf | 不建议直接作为 `CODEX_COMMAND` | 在 Windsurf IDE 里使用 Cascade；`chat2ide` 用来从手机查看同一台服务器/同一仓库里的 shell、测试和其他 CLI agent | Windsurf 的核心 AI 体验是 IDE 内 Cascade/Terminal，不是通用的独立 PTY agent。 |
-| Trae IDE | 不支持直接操控 GUI | 用 Trae IDE 本身开发；需要手机接管时，用 `trae-agent` CLI 或其他终端 agent | `chat2ide` 不做远程桌面，也不接管 IDE 插件状态。 |
-| Cursor / Windsurf / Trae 等 GUI 编辑器 | 间接配合 | 让编辑器和 `chat2ide` 指向同一台机器、同一份 repo、同一套 git/测试命令 | `chat2ide` 负责终端流；GUI 编辑器负责本地/桌面交互。 |
+在一台新机器上声称“接入完成”之前，至少确认四件事：厂商命令存在、同一个系统账户下已经完成登录、CLI 能从 `CODEX_CWD` 在普通终端里启动、`chat2ide` 能用这个 `CODEX_COMMAND` 创建终端并看到预期提示符或 TUI。
+
+| 平台 | 是否直接接入 | `CODEX_COMMAND` / 参数 | 推荐接入方式 | 参考文档 |
+| --- | --- | --- | --- | --- |
+| OpenAI Codex CLI | 可以 | `CODEX_COMMAND=codex` | 先运行 `codex login`，再从项目目录启动。 | [Codex CLI reference](https://developers.openai.com/codex/cli/reference) |
+| Anthropic Claude Code | 可以 | `CODEX_COMMAND=claude` | 在服务器上运行 `claude auth login` 或完成账号登录流程。 | [Claude Code CLI reference](https://code.claude.com/docs/en/cli-reference) |
+| Google Gemini CLI | 可以 | `CODEX_COMMAND=gemini` | 安装 `@google/gemini-cli`，运行 `gemini`，完成 Google 登录。 | [Gemini CLI installation](https://geminicli.com/docs/get-started/installation/) |
+| Cursor Agent CLI | 可以 | `CODEX_COMMAND=cursor-agent` | 安装 Cursor CLI 并登录。这里接的是终端 agent，不是远程控制 Cursor 编辑器 GUI。 | [Cursor CLI docs](https://cursor.com/docs/cli/overview) |
+| Qoder CLI | 可以 | `CODEX_COMMAND=qodercli` | 安装 `@qoder-ai/qodercli`，运行 `qodercli`，再用 `/login` 或 `QODER_PERSONAL_ACCESS_TOKEN` 登录。 | [Qoder CLI quick start](https://docs.qoder.com/en/cli/quick-start) |
+| Trae Agent CLI | 可以 | `CODEX_COMMAND=trae-cli`，`CODEX_ARGS=["interactive"]` | 使用开源 `trae-agent` CLI。一次性任务可以在 shell 里运行 `trae-cli run "<task>"`，或写 wrapper。 | [trae-agent](https://github.com/bytedance/trae-agent) |
+| Qwen Code | 可以 | `CODEX_COMMAND=qwen` | 安装 `@qwen-code/qwen-code`，运行 `qwen`，再通过 `/auth` 配置账号或 API key。 | [Qwen Code](https://github.com/QwenLM/qwen-code) |
+| Kiro CLI | 可以 | `CODEX_COMMAND=kiro-cli`，`CODEX_ARGS=["chat"]` | 安装 Kiro CLI，完成浏览器登录，再从项目目录启动 chat。 | [Kiro CLI installation](https://kiro.dev/docs/cli/installation/) |
+| GitHub Copilot CLI | 可以，前提是安装独立 CLI | `CODEX_COMMAND=copilot` | 安装 Copilot CLI，确认组织策略允许使用，并完成登录。如果只有 `gh copilot`，建议用 wrapper 脚本。 | [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/cli-getting-started) |
+| Aider | 可以 | `CODEX_COMMAND=aider` | 安装 `aider-chat`，配置模型/API 凭据，然后在 repo 中启动。 | [Aider installation](https://aider.chat/docs/install.html) |
+| Goose CLI | 可以 | `CODEX_COMMAND=goose`，`CODEX_ARGS=["session"]` | 安装 CLI，配置 LLM provider，然后运行 `goose session`。 | [Goose installation](https://goose-docs.ai/docs/getting-started/installation/) |
+| Windsurf / Devin Desktop | 间接配合 | `CODEX_COMMAND=bash` 或 `powershell` | 在 IDE 内使用 Cascade 和增强终端；`chat2ide` 用来从手机查看同一仓库的 shell、测试、git 和其他 CLI agent。 | [Terminal and Cascade docs](https://docs.devin.ai/desktop/terminal) |
+| Trae IDE | 间接配合，除非使用 `trae-agent` | 直接 PTY 控制请用 `trae-cli` | `chat2ide` 不做远程桌面，也不接管 IDE 插件状态。 | [trae-agent](https://github.com/bytedance/trae-agent) |
+| qCoder / QCoder 命名的工具 | 只有暴露真实 CLI 才可以 | 把 `CODEX_COMMAND` 指向对应二进制 | 这个名字不唯一。如果你指的是 Qoder，用 `qodercli`；否则按普通 PTY 程序验证本地 `qcoder` 命令。 | 如果指 Qoder，见 [Qoder CLI quick start](https://docs.qoder.com/en/cli/quick-start)；否则以对应厂商文档为准 |
 
 常见配置：
 
@@ -99,6 +105,41 @@ CODEX_ARGS=[]
 CODEX_CWD=/srv/your-project
 ```
 
+```dotenv
+# Qwen Code
+CODEX_COMMAND=qwen
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Kiro CLI chat
+CODEX_COMMAND=kiro-cli
+CODEX_ARGS=["chat"]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# GitHub Copilot CLI
+CODEX_COMMAND=copilot
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Aider
+CODEX_COMMAND=aider
+CODEX_ARGS=[]
+CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Goose CLI
+CODEX_COMMAND=goose
+CODEX_ARGS=["session"]
+CODEX_CWD=/srv/your-project
+```
+
 如果某个平台只有桌面 GUI、浏览器工作台或 IDE 插件，没有公开的终端 CLI，就不要把它直接写成 `CODEX_COMMAND`。这时推荐把 `CODEX_COMMAND` 设置为 `bash`/`powershell`，然后在 `chat2ide` 里运行测试、git、部署脚本，或者启动另一个真正的 CLI agent。
 
 ## 不适合什么
@@ -111,105 +152,6 @@ CODEX_CWD=/srv/your-project
 - 需要自动脱敏终端内容的生产控制台。
 
 登录后，用户等价于拿到了运行 `chat2ide` 的系统账户权限。请用低权限账户运行，并把 `CODEX_CWD` 指向具体项目目录。
-
-## 通信架构
-
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {"fontFamily": "Inter, ui-sans-serif, system-ui", "primaryColor": "#0f172a", "lineColor": "#64748b"}}}%%
-flowchart TB
-  subgraph Surface["Access surface"]
-    Mobile["Mobile browser<br/>status, tabs, composer"]
-    Desktop["Desktop browser<br/>full terminal workbench"]
-  end
-
-  subgraph Ingress["Ingress"]
-    Tunnel["Cloudflare Tunnel<br/>HTTPS + WebSocket upgrade"]
-  end
-
-  subgraph App["chat2ide app process"]
-    UI["React workbench<br/>Vite static UI"]
-    Auth["PIN session guard<br/>HttpOnly cookie"]
-    API["REST API<br/>create, list, stop, restart"]
-    WSGW["WebSocket gateway<br/>attach, input, resize, replay"]
-  end
-
-  subgraph Runtime["Terminal runtime"]
-    Manager["TerminalSessionManager<br/>lifecycle + limits"]
-    Buffer["Ring buffer<br/>recent-output replay"]
-    PTY["node-pty<br/>real server-side PTY"]
-  end
-
-  subgraph Coding["AI coding environment"]
-    CLI["AI coding CLI<br/>Codex / Cursor Agent / Qoder / Trae Agent / custom"]
-    Repo["Project workspace<br/>CODEX_CWD"]
-  end
-
-  Mobile -->|HTTPS| Tunnel
-  Desktop -->|HTTPS| Tunnel
-  Tunnel -->|local HTTP| UI
-  UI --> Auth
-  UI --> API
-  UI <-->|terminal stream| WSGW
-  API --> Manager
-  WSGW --> Manager
-  Manager --> Buffer
-  Manager --> PTY
-  PTY <-->|stdin / stdout / resize| CLI
-  CLI <-->|files, tests, git| Repo
-
-  classDef surface fill:#ecfeff,stroke:#0891b2,color:#164e63
-  classDef ingress fill:#eff6ff,stroke:#2563eb,color:#1e3a8a
-  classDef app fill:#f8fafc,stroke:#475569,color:#0f172a
-  classDef runtime fill:#fff7ed,stroke:#f97316,color:#7c2d12
-  classDef coding fill:#f0fdf4,stroke:#16a34a,color:#14532d
-  class Mobile,Desktop surface
-  class Tunnel ingress
-  class UI,Auth,API,WSGW app
-  class Manager,Buffer,PTY runtime
-  class CLI,Repo coding
-```
-
-## 使用流程
-
-```mermaid
-sequenceDiagram
-  autonumber
-  participant User as Phone / Browser
-  participant UI as React workbench
-  participant API as Express REST
-  participant WS as WebSocket gateway
-  participant TM as TerminalSessionManager
-  participant PTY as node-pty PTY
-  participant CLI as AI coding CLI
-
-  rect rgb(239, 246, 255)
-    Note over User,API: Authenticate and create a terminal
-    User->>API: POST /api/auth/login
-    API-->>User: HttpOnly session cookie
-    User->>API: POST /api/terminals
-    API->>TM: allocate starting session
-    API-->>UI: terminal summary
-  end
-
-  rect rgb(240, 253, 244)
-    Note over UI,CLI: Attach starts the real PTY
-    UI->>WS: attach terminalId
-    WS->>TM: attach subscriber
-    TM->>PTY: spawn CODEX_COMMAND in CODEX_CWD
-    PTY->>CLI: interactive terminal process
-  end
-
-  rect rgb(255, 247, 237)
-    Note over User,CLI: Browser input becomes PTY bytes
-    CLI-->>WS: output chunks
-    WS-->>UI: render in xterm.js
-    User->>UI: send command / prompt
-    UI->>WS: input, resize, Ctrl+C
-    WS->>PTY: write bytes to PTY
-  end
-```
-
-新建终端时，服务端先保存一个 `starting` 会话。浏览器通过 WebSocket 附着后，服务端才启动 PTY。这样启动阶段的交互式输出会先进入真实 xterm 视图。
 
 ## 要求
 
@@ -341,6 +283,44 @@ $env:APP_PIN="123456"; $env:CODEX_COMMAND="powershell.exe"; $env:CODEX_ARGS='["-
 ```
 
 打开 `http://127.0.0.1:3000`，确认页面没有横向滚动，顶部状态栏不会挤压终端区，终端区和底部输入区都在首屏内，然后实际发送一条命令看输出。再发送第二条命令，并在单行输入状态下用方向键检查本次会话的命令历史是否能回填。
+
+## 架构
+
+完整设计说明在 [docs/architecture.md](docs/architecture.md)。下面的折叠图只保留手机接管终端时最关键的运行路径。
+
+<details>
+<summary>紧凑通信架构</summary>
+
+```mermaid
+flowchart LR
+  Browser["手机 / 浏览器"] --> Tunnel["HTTPS + WebSocket<br/>Cloudflare Tunnel"]
+  Tunnel --> App["chat2ide<br/>React UI + Express API"]
+  App --> Auth["PIN session<br/>HttpOnly cookie"]
+  App <-->|REST + /ws| Manager["Session manager<br/>限制 + 回放缓存"]
+  Manager --> PTY["node-pty<br/>真实 PTY"]
+  PTY <-->|stdin / stdout / resize| CLI["AI coding CLI<br/>codex / claude / gemini / cursor-agent / qodercli / custom"]
+  CLI <-->|文件 / 测试 / git| Repo["项目目录<br/>CODEX_CWD"]
+```
+
+```mermaid
+sequenceDiagram
+  participant U as 手机/浏览器
+  participant A as chat2ide API+WS
+  participant T as Session manager
+  participant P as node-pty
+  participant C as AI coding CLI
+  U->>A: 登录 + 新建终端
+  A->>T: 分配 session
+  U->>A: WebSocket attach
+  T->>P: 在 CODEX_CWD 启动 CODEX_COMMAND
+  P->>C: 启动交互式 CLI
+  U-->>C: 输入、resize、Ctrl+C 经 WS 和 PTY 转发
+  C-->>U: 流式输出和最近输出回放
+```
+
+</details>
+
+新建终端时，服务端先保存一个 `starting` 会话。浏览器通过 WebSocket 附着后，服务端才启动 PTY。这样启动阶段的交互式输出会先进入真实 xterm 视图。
 
 ## 运维边界
 
