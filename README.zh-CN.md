@@ -4,6 +4,14 @@
 
 它解决的是一个很具体的问题：你有一台可信的 Linux 开发机、VPS 或家用服务器，Codex CLI 已经能在上面跑。你想从电脑、平板或手机查看任务，必要时发一条指令、按 `Ctrl+C`、重启或关闭终端。
 
+## 界面预览
+
+<p align="center">
+  <img src="docs/assets/chat2ide-mobile-workbench.png" alt="chat2ide 手机端远程终端工作台" width="360">
+</p>
+
+手机端不是把桌面终端强行缩小，而是把状态概览、终端标签、真实 xterm 输出和底部输入栏放在一个可接管长任务的工作台里。
+
 ## 这个仓库可以做什么
 
 - 用 PIN 登录一个私有 Web 控制台。
@@ -18,6 +26,18 @@
 - 用配置限制终端数量、单次输入大小和 WebSocket 消息大小。
 - 不使用数据库。登录 session、终端进程和输出缓存都在当前服务进程内存里。
 
+## 技术栈和 AI 编程工具接入方式
+
+| 层 | 技术 | 作用 |
+| --- | --- | --- |
+| 前端工作台 | React、Vite、Tailwind CSS、xterm.js | 渲染移动端/桌面端控制台、终端标签和真实 ANSI 终端输出 |
+| 服务端 | Express、`ws`、TypeScript | 提供登录、终端管理 API 和 `/ws` WebSocket 通道 |
+| 终端运行时 | `node-pty` | 在服务器上启动真实 PTY，让交互式 CLI 以为自己在标准终端里运行 |
+| 远程入口 | Cloudflare Tunnel | 把公网 HTTPS 域名转发到服务器本地 `127.0.0.1:3000` |
+| 状态存储 | 进程内存、ring buffer | 保存登录 session、PTY 进程句柄和最近输出回放 |
+
+默认命令是 `codex`。如果你想接入 Claude Code、Gemini CLI、Aider 或自己的 AI coding wrapper，可以把 `CODEX_COMMAND` 指向对应命令，用 `CODEX_ARGS` 配启动参数。`chat2ide` 不调用这些工具的私有 API；它只负责把手机/浏览器输入通过 WebSocket 写入真实 PTY，再把 PTY 输出流式送回网页。
+
 ## 不适合什么
 
 - 多用户团队 IDE。
@@ -29,22 +49,64 @@
 
 登录后，用户等价于拿到了运行 `chat2ide` 的系统账户权限。请用低权限账户运行，并把 `CODEX_CWD` 指向具体项目目录。
 
-## 架构
+## 通信架构
 
-```text
-browser / phone
-    |
-Cloudflare edge
-    |
-cloudflared on the server
-    |
-127.0.0.1:3000 chat2ide
-    |
-Express + WebSocket
-    |
-node-pty
-    |
-Codex CLI in CODEX_CWD
+```mermaid
+flowchart LR
+  subgraph Client["Client devices"]
+    Phone["Phone / tablet browser"]
+    Desktop["Desktop browser"]
+  end
+
+  subgraph Edge["Optional public edge"]
+    CF["Cloudflare Tunnel<br/>HTTPS origin"]
+  end
+
+  subgraph Server["Trusted server"]
+    App["chat2ide<br/>Express + static React UI"]
+    Auth["PIN auth<br/>HttpOnly cookie"]
+    WS["/ws WebSocket<br/>attach · input · resize · replay"]
+    Manager["TerminalSessionManager<br/>limits + ring buffer"]
+    PTY["node-pty<br/>real PTY process"]
+    Agent["AI coding CLI<br/>Codex CLI / Claude Code / Gemini CLI / Aider / custom command"]
+    Project["CODEX_CWD<br/>project workspace"]
+  end
+
+  Phone -->|HTTPS| CF
+  Desktop -->|HTTPS| CF
+  CF -->|127.0.0.1:3000| App
+  Phone -. local dev .-> App
+  App --> Auth
+  App <--> WS
+  WS --> Manager
+  Manager --> PTY
+  PTY <--> Agent
+  Agent <--> Project
+```
+
+## 使用流程
+
+```mermaid
+sequenceDiagram
+  participant User as Phone / Browser
+  participant UI as React UI
+  participant API as Express API
+  participant WS as WebSocket /ws
+  participant PTY as node-pty
+  participant CLI as AI coding CLI
+
+  User->>API: POST /api/auth/login with PIN
+  API-->>User: HttpOnly session cookie
+  User->>API: POST /api/terminals
+  API-->>UI: starting terminal summary
+  UI->>WS: attach terminalId
+  WS->>PTY: start PTY on first attach
+  PTY->>CLI: run CODEX_COMMAND in CODEX_CWD
+  CLI-->>WS: terminal output bytes
+  WS-->>UI: output chunks and replay
+  User->>UI: send prompt / command from bottom composer
+  UI->>WS: input, resize, Ctrl+C
+  WS->>PTY: write bytes to PTY
 ```
 
 新建终端时，服务端先保存一个 `starting` 会话。浏览器通过 WebSocket 附着后，服务端才启动 PTY。这样启动阶段的交互式输出会先进入真实 xterm 视图。
