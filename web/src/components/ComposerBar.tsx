@@ -1,4 +1,4 @@
-import { FormEvent } from 'react';
+import { FormEvent, KeyboardEvent } from 'react';
 import {
   Ban,
   type LucideIcon,
@@ -13,10 +13,13 @@ import { TerminalSummary } from '@shared/protocol';
 interface ComposerBarProps {
   activeTerminal: TerminalSummary | null;
   busy: boolean;
+  canNavigateHistory: boolean;
   connected: boolean;
   value: string;
   onChange(value: string): void;
   onClose(): void;
+  onHistoryNext(): void;
+  onHistoryPrevious(): void;
   onInterrupt(): void;
   onRestart(): void;
   onSend(): void;
@@ -26,10 +29,13 @@ interface ComposerBarProps {
 export function ComposerBar({
   activeTerminal,
   busy,
+  canNavigateHistory,
   connected,
   value,
   onChange,
   onClose,
+  onHistoryNext,
+  onHistoryPrevious,
   onInterrupt,
   onRestart,
   onSend,
@@ -40,6 +46,23 @@ export function ComposerBar({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     onSend();
+  };
+
+  const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!canNavigateHistory || value.includes('\n')) {
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      onHistoryPrevious();
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      onHistoryNext();
+    }
   };
 
   return (
@@ -64,6 +87,7 @@ export function ComposerBar({
           spellCheck={false}
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          onKeyDown={handleComposerKeyDown}
         />
 
         <button

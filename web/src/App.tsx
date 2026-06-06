@@ -16,6 +16,15 @@ import {
 } from 'lucide-react';
 
 import { ServerWsMessage, TerminalSummary } from '@shared/protocol';
+import {
+  addCommandToHistory,
+  chooseAdjacentTerminalId,
+  formatCompactCount,
+  getNextCommandHistoryValue,
+  getPreviousCommandHistoryValue,
+  summarizeTerminals,
+  TerminalWorkbenchStats,
+} from '@shared/terminalState';
 
 import {
   closeTerminal,
@@ -43,6 +52,9 @@ export default function App() {
   const [terminals, setTerminals] = useState<TerminalSummary[]>([]);
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null);
   const [composerValue, setComposerValue] = useState('');
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [commandHistoryCursor, setCommandHistoryCursor] = useState<number | null>(null);
+  const [commandHistoryDraft, setCommandHistoryDraft] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [unreadById, setUnreadById] = useState<Record<string, number>>({});
   const paneControllersRef = useRef(new Map<string, TerminalPaneController>());
@@ -52,12 +64,13 @@ export default function App() {
 
   const loadTerminals = useCallback(async () => {
     const nextTerminals = await listTerminals();
-    setTerminals(sortTerminalsByCreatedAt(nextTerminals));
+    const sortedTerminals = sortTerminalsByCreatedAt(nextTerminals);
+    setTerminals(sortedTerminals);
     setActiveTerminalId((current) => {
-      if (current && nextTerminals.some((terminal) => terminal.id === current)) {
+      if (current && sortedTerminals.some((terminal) => terminal.id === current)) {
         return current;
       }
-      return nextTerminals[0]?.id ?? null;
+      return sortedTerminals[0]?.id ?? null;
     });
   }, []);
 
@@ -107,12 +120,13 @@ export default function App() {
           return;
         case 'terminal_list':
           startTransition(() => {
-            setTerminals(sortTerminalsByCreatedAt(message.items));
+            const sortedTerminals = sortTerminalsByCreatedAt(message.items);
+            setTerminals(sortedTerminals);
             setActiveTerminalId((current) => {
-              if (current && message.items.some((terminal) => terminal.id === current)) {
+              if (current && sortedTerminals.some((terminal) => terminal.id === current)) {
                 return current;
               }
-              return message.items[0]?.id ?? null;
+              return sortedTerminals[0]?.id ?? null;
             });
           });
           return;
@@ -141,10 +155,7 @@ export default function App() {
               if (current !== message.terminalId) {
                 return current;
               }
-              const remaining = terminalsRef.current.filter(
-                (terminal) => terminal.id !== message.terminalId,
-              );
-              return remaining[0]?.id ?? null;
+              return chooseAdjacentTerminalId(terminalsRef.current, message.terminalId);
             });
           });
           paneControllersRef.current.delete(message.terminalId);
@@ -201,6 +212,9 @@ export default function App() {
     setTerminals([]);
     setActiveTerminalId(null);
     setComposerValue('');
+    setCommandHistory([]);
+    setCommandHistoryCursor(null);
+    setCommandHistoryDraft('');
     setNotice(null);
     setUnreadById({});
     paneControllersRef.current.clear();
@@ -218,6 +232,11 @@ export default function App() {
   const activeTerminal = useMemo(
     () => terminals.find((terminal) => terminal.id === activeTerminalId) ?? null,
     [activeTerminalId, terminals],
+  );
+
+  const terminalStats = useMemo(
+    () => summarizeTerminals(terminals, unreadById),
+    [terminals, unreadById],
   );
 
   const registerController = useCallback(
@@ -318,6 +337,9 @@ export default function App() {
       setTerminals([]);
       setActiveTerminalId(null);
       setComposerValue('');
+      setCommandHistory([]);
+      setCommandHistoryCursor(null);
+      setCommandHistoryDraft('');
       setNotice(null);
       setUnreadById({});
       paneControllersRef.current.clear();
@@ -366,6 +388,8 @@ export default function App() {
 
   const handleSelectTerminal = useCallback((terminalId: string) => {
     setActiveTerminalId(terminalId);
+    setCommandHistoryCursor(null);
+    setCommandHistoryDraft('');
     setUnreadById((current) => ({
       ...current,
       [terminalId]: 0,
@@ -382,6 +406,36 @@ export default function App() {
     requestTerminalReplay(activeTerminalId, true);
   }, [activeTerminalId, requestTerminalReplay]);
 
+  const handleComposerChange = useCallback((nextValue: string) => {
+    setComposerValue(nextValue);
+    setCommandHistoryCursor(null);
+    setCommandHistoryDraft('');
+  }, []);
+
+  const handleCommandHistoryPrevious = useCallback(() => {
+    const next = getPreviousCommandHistoryValue(
+      commandHistory,
+      commandHistoryCursor,
+      commandHistoryDraft,
+      composerValue,
+    );
+    setComposerValue(next.value);
+    setCommandHistoryCursor(next.cursor);
+    setCommandHistoryDraft(next.draft);
+  }, [commandHistory, commandHistoryCursor, commandHistoryDraft, composerValue]);
+
+  const handleCommandHistoryNext = useCallback(() => {
+    const next = getNextCommandHistoryValue(
+      commandHistory,
+      commandHistoryCursor,
+      commandHistoryDraft,
+      composerValue,
+    );
+    setComposerValue(next.value);
+    setCommandHistoryCursor(next.cursor);
+    setCommandHistoryDraft(next.draft);
+  }, [commandHistory, commandHistoryCursor, commandHistoryDraft, composerValue]);
+
   const handleSendInput = useCallback(() => {
     if (!activeTerminalId) {
       return;
@@ -396,6 +450,9 @@ export default function App() {
       data: normalized,
     });
     if (sent) {
+      setCommandHistory((current) => addCommandToHistory(current, composerValue));
+      setCommandHistoryCursor(null);
+      setCommandHistoryDraft('');
       setComposerValue('');
     }
   }, [activeTerminalId, composerValue, sendMessage]);
@@ -554,16 +611,22 @@ export default function App() {
             />
           </div>
 
-          <div className="flex min-w-0 items-center gap-2 text-[11px] leading-4 text-slate-400 sm:text-xs">
-            {activeTerminal ? (
-              <span className="shrink-0 text-slate-300 sm:hidden">
-                {activeTerminal.name} · {formatTerminalStatus(activeTerminal.status)}
+          <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center gap-2 text-[11px] leading-4 text-slate-400 sm:text-xs lg:flex-1">
+              {activeTerminal ? (
+                <span className="shrink-0 text-slate-300 sm:hidden">
+                  {activeTerminal.name} · {formatTerminalStatus(activeTerminal.status)}
+                </span>
+              ) : null}
+              <span className="min-w-0 flex-1 truncate">
+                {activeTerminal?.cwd ?? '尚未选择终端'}
               </span>
-            ) : null}
-            <span className="min-w-0 flex-1 truncate">
-              {activeTerminal?.cwd ?? '尚未选择终端'}
-            </span>
-            {activeTerminal?.pid ? <span className="shrink-0">PID {activeTerminal.pid}</span> : null}
+              {activeTerminal?.pid ? (
+                <span className="shrink-0">PID {activeTerminal.pid}</span>
+              ) : null}
+            </div>
+
+            <WorkbenchOverview activeTerminal={activeTerminal} stats={terminalStats} />
           </div>
         </div>
 
@@ -607,10 +670,13 @@ export default function App() {
         <ComposerBar
           activeTerminal={activeTerminal}
           busy={busyAction}
+          canNavigateHistory={commandHistory.length > 0}
           connected={connectionState === 'connected'}
           value={composerValue}
-          onChange={setComposerValue}
+          onChange={handleComposerChange}
           onClose={handleClose}
+          onHistoryNext={handleCommandHistoryNext}
+          onHistoryPrevious={handleCommandHistoryPrevious}
           onInterrupt={handleInterrupt}
           onRestart={handleRestart}
           onSend={handleSendInput}
@@ -681,6 +747,58 @@ function ToolbarButton({
       <Icon aria-hidden className="h-4 w-4" />
       <span className={hideLabelOnMobile ? 'hidden sm:inline' : ''}>{label}</span>
     </button>
+  );
+}
+
+function WorkbenchOverview({
+  activeTerminal,
+  stats,
+}: {
+  activeTerminal: TerminalSummary | null;
+  stats: TerminalWorkbenchStats;
+}) {
+  const size = activeTerminal ? `${activeTerminal.cols}x${activeTerminal.rows}` : '-';
+
+  return (
+    <div className="flex flex-wrap gap-1.5 text-[11px] leading-none sm:text-xs">
+      <OverviewMetric label="终端" value={formatCompactCount(stats.total)} />
+      <OverviewMetric label="运行" tone="success" value={formatCompactCount(stats.running)} />
+      <OverviewMetric label="启动" tone="warning" value={formatCompactCount(stats.starting)} />
+      <OverviewMetric label="停止" value={formatCompactCount(stats.stopped)} />
+      <OverviewMetric label="异常" tone="danger" value={formatCompactCount(stats.error)} />
+      <OverviewMetric label="未读" tone="accent" value={formatCompactCount(stats.unread)} />
+      <OverviewMetric label="尺寸" value={size} />
+    </div>
+  );
+}
+
+function OverviewMetric({
+  label,
+  tone = 'default',
+  value,
+}: {
+  label: string;
+  tone?: 'default' | 'success' | 'warning' | 'danger' | 'accent';
+  value: string;
+}) {
+  const toneClass =
+    tone === 'success'
+      ? 'border-success/35 bg-success/10 text-emerald-100'
+      : tone === 'warning'
+      ? 'border-warning/35 bg-warning/10 text-amber-100'
+      : tone === 'danger'
+      ? 'border-danger/35 bg-danger/10 text-red-100'
+      : tone === 'accent'
+      ? 'border-accent/35 bg-accent/10 text-orange-100'
+      : 'border-white/10 bg-white/[0.04] text-slate-200';
+
+  return (
+    <span
+      className={`inline-flex min-h-7 min-w-[4.25rem] items-center justify-between gap-1.5 rounded-lg border px-2 ${toneClass}`}
+    >
+      <span className="text-slate-400">{label}</span>
+      <span className="font-semibold tabular-nums">{value}</span>
+    </span>
   );
 }
 

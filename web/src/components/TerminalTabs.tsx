@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react';
 
 import { TerminalSummary } from '@shared/protocol';
+import { formatCompactCount } from '@shared/terminalState';
 
 interface TerminalTabsProps {
   terminals: TerminalSummary[];
@@ -54,8 +55,8 @@ export function TerminalTabs({
                 </span>
               </span>
               {unreadById[terminal.id] ? (
-                <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-slate-950 sm:px-2 sm:text-xs">
-                  {unreadById[terminal.id]}
+                <span className="min-w-6 rounded bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold tabular-nums text-slate-950 sm:px-2 sm:text-xs">
+                  {formatCompactCount(unreadById[terminal.id])}
                 </span>
               ) : null}
             </button>

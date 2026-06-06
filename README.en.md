@@ -10,7 +10,10 @@ It is built for a narrow use case: you already have Codex CLI working on a trust
 - Creates multiple independent Codex CLI terminal tabs.
 - Uses `xterm.js` to render real terminal output, including ANSI sequences and cursor control.
 - Lets mobile users send commands from a bottom input bar instead of typing directly into xterm.
+- Shows terminal totals, running/starting/stopped/error counts, unread background output, and the active terminal size.
+- Keeps the last 30 sent commands in browser memory for the current session, with arrow-key recall for single-line input. The history is not written to local storage.
 - Reconnects after refresh or short network drops and replays recent terminal output.
+- Moves to the adjacent terminal after closing the active tab, which keeps multi-task switching predictable.
 - Works behind Cloudflare Tunnel so the app can stay bound to `127.0.0.1`.
 - Limits terminal count, single input size, and WebSocket message size.
 - Uses no database. Sessions, PTY processes, and replay buffers live in server memory.
@@ -157,7 +160,7 @@ HTTP API and WebSocket use the same origin. The WebSocket path is `/ws`. See [Cl
 6. Use `Ctrl+C` to interrupt, "Stop" to end the process, "Restart" to clear the view and start a new PTY, and "Close" to remove the tab.
 7. After refresh or a short disconnect, the page reattaches to the current terminal and replays recent output.
 
-On phones, use the bottom input bar first. Terminal tabs scroll horizontally.
+On phones, use the bottom input bar first. Terminal tabs scroll horizontally; the top overview shows whether background terminals have unread output, errors, or sessions still starting.
 
 ## Mobile Check
 
@@ -175,7 +178,7 @@ npm run build
 $env:APP_PIN="123456"; $env:CODEX_COMMAND="powershell.exe"; $env:CODEX_ARGS='["-NoLogo"]'; $env:CODEX_CWD=$PWD; npm run start
 ```
 
-Open `http://127.0.0.1:3000`, check that the page has no horizontal scrolling, that the terminal and bottom input are visible, and send one command to confirm output appears.
+Open `http://127.0.0.1:3000`, check that the page has no horizontal scrolling, that the overview does not crowd out the terminal, that the terminal and bottom input are visible, and send one command to confirm output appears. Send a second command and use the arrow keys in single-line input to confirm the in-memory command history recalls it.
 
 ## Operational Boundaries
 
@@ -199,4 +202,3 @@ Open `http://127.0.0.1:3000`, check that the page has no horizontal scrolling, t
 - [Troubleshooting](docs/troubleshooting.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
-
