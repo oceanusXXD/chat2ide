@@ -75,6 +75,22 @@ Before calling an integration ready on a new host, verify four things: the comma
 | Windsurf / Devin Desktop | Indirect | `CODEX_COMMAND=bash` or `powershell` | Use Cascade and the enhanced terminal inside the IDE; use `chat2ide` beside it for mobile shell, tests, git, and other CLI agents. | [Terminal and Cascade docs](https://docs.devin.ai/desktop/terminal) |
 | Trae IDE | Indirect unless using `trae-agent` | Use `trae-cli` for direct PTY control | `chat2ide` is not remote desktop and does not control IDE plugin state. | [trae-agent README](https://github.com/bytedance/trae-agent/blob/main/README.md) |
 
+### CLI Works, IDEs And Apps Are Indirect
+
+When a vendor ships a CLI, desktop IDE, browser workspace, plugin, and mobile app, `chat2ide` only controls the server-side CLI. IDE windows, plugin sidebars, vendor cloud workspaces, and mobile-app sessions are not remote-controlled by this project today.
+
+| Ecosystem / product | CLI path | IDE / app status |
+| --- | --- | --- |
+| Cursor | `cursor-agent` can be used directly | Cursor IDE GUI, sidebars, and editor state are not controlled |
+| Windsurf / Devin Desktop | Use `bash` / `powershell` or another CLI agent beside it | Cascade, desktop windows, and IDE state are not controlled |
+| Trae / MarsCode | `trae-cli` can be used directly | Trae IDE, MarsCode cloud workspaces, and plugin experiences are not controlled |
+| Qoder | `qodercli` can be used directly | Qoder IDE / app surfaces are not controlled; use the CLI for terminal control |
+| Qwen / Alibaba Lingma | `qwen` can be used directly | Lingma IDE, VS Code / JetBrains plugins, and Agent panels are waiting development |
+| Tencent CodeBuddy | `codebuddy` or `tcb ai -a codebuddy` can be used directly | CodeBuddy IDE, plugins, and WorkBuddy mini app are not controlled |
+| Huawei CodeArts | `codearts` can be used directly | CodeArts Snap, IDE plugins, and console workspaces are not controlled |
+| Kimi Code | `kimi` can be used directly | Kimi Code VS Code extension or app sessions are not controlled |
+| Gemini / Claude / Copilot | `gemini`, `claude`, and `copilot` can be used directly | Gemini Code Assist, Claude / Copilot IDE plugins, and app sessions are not controlled |
+
 ### China-Market Platform Status
 
 These tools are common in China-market development workflows, but not every product shape can be controlled by `chat2ide`. The rule is unchanged: direct support requires a public terminal CLI that runs inside a PTY.

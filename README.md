@@ -96,6 +96,22 @@
 | Windsurf / Devin Desktop | 间接配合 | `CODEX_COMMAND=bash` 或 `powershell` | 在 IDE 内使用 Cascade 和增强终端；`chat2ide` 负责手机侧 shell、测试、git 和其他 CLI agent。 | [Terminal and Cascade docs](https://docs.devin.ai/desktop/terminal) |
 | Trae IDE | 间接配合，除非使用 `trae-agent` | 直接 PTY 控制请用 `trae-cli` | `chat2ide` 不做远程桌面，也不接管 IDE 插件状态。 | [trae-agent README](https://github.com/bytedance/trae-agent/blob/main/README.md) |
 
+### CLI 可以接，IDE / App 不直接接
+
+如果一个平台同时有 CLI、桌面 IDE、浏览器工作台、插件和手机 App，`chat2ide` 只接服务器上的 CLI。IDE 窗口、插件侧边栏、厂商云端 workspace 和手机 App 内的会话目前不做远程控制。
+
+| 生态 / 产品 | CLI 接入方式 | IDE / App 当前状态 |
+| --- | --- | --- |
+| Cursor | `cursor-agent` 可以直接接 | Cursor IDE GUI、侧边栏和编辑器状态不接管 |
+| Windsurf / Devin Desktop | 可用 `bash` / `powershell` 或其他 CLI agent 间接配合 | Cascade、桌面端窗口和 IDE 状态不接管 |
+| Trae / MarsCode | `trae-cli` 可以直接接 | Trae IDE、MarsCode 云工作台和插件体验不接管 |
+| Qoder | `qodercli` 可以直接接 | Qoder 的 IDE / App 形态不接管；需要终端接管时使用 CLI |
+| Qwen / 通义灵码 | `qwen` 可以直接接 | 通义灵码 IDE、VS Code / JetBrains 插件和 Agent 面板等待开发 |
+| 腾讯 CodeBuddy | `codebuddy` 或 `tcb ai -a codebuddy` 可以直接接 | CodeBuddy IDE、插件和 WorkBuddy 小程序不接管 |
+| 华为 CodeArts | `codearts` 可以直接接 | CodeArts Snap、IDE 插件和控制台工作台不接管 |
+| Kimi Code | `kimi` 可以直接接 | Kimi Code VS Code 扩展或 App 内会话不接管 |
+| Gemini / Claude / Copilot | `gemini`、`claude`、`copilot` 可以直接接 | Gemini Code Assist、Claude / Copilot 的 IDE 插件或 App 会话不接管 |
+
 ### 国内平台补充状态
 
 这些工具在国内团队里常见，但不是所有形态都能直接被 `chat2ide` 接管。判断标准仍然只有一个：有没有公开、可在 PTY 中运行的终端 CLI。
