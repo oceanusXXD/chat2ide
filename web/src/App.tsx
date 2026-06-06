@@ -468,8 +468,8 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell flex min-h-[100dvh] flex-col bg-[#071019] text-ink">
-      <header className="shrink-0 border-b border-white/10 bg-panel/95 px-3 py-2.5 backdrop-blur sm:px-4 sm:py-4">
+    <main className="app-shell flex h-[100dvh] flex-col overflow-hidden bg-[#071019] text-ink">
+      <header className="shrink-0 border-b border-white/10 bg-panel/95 px-3 py-2.5 backdrop-blur sm:px-4 sm:py-3">
         <div className="flex flex-col gap-2 sm:gap-3">
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
@@ -582,7 +582,7 @@ export default function App() {
         onSelect={handleSelectTerminal}
       />
 
-      <section className="flex min-h-0 flex-1 flex-col px-2 py-2 sm:px-3 sm:py-3">
+      <section className="flex min-h-0 flex-1 flex-col px-2 py-2 sm:px-3">
         <div className="flex min-h-0 flex-1 flex-col">
           {terminals.length === 0 ? (
             <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-white/10 bg-[#0b131d] px-6 text-center text-sm leading-6 text-slate-400">

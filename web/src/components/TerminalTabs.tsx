@@ -18,7 +18,7 @@ export function TerminalTabs({
   onSelect,
 }: TerminalTabsProps) {
   return (
-    <div className="shrink-0 border-b border-white/10 bg-panelAlt/80 px-2 py-2 sm:px-3 sm:py-3">
+    <div className="shrink-0 border-b border-white/10 bg-panelAlt/80 px-2 py-2 sm:px-3">
       <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] sm:gap-2 sm:pb-1">
         {terminals.map((terminal) => {
           const active = terminal.id === activeTerminalId;
@@ -26,7 +26,7 @@ export function TerminalTabs({
             <button
               aria-selected={active}
               key={terminal.id}
-              className={`flex min-w-[8rem] max-w-[10.5rem] shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-left transition sm:min-w-[10rem] sm:gap-3 sm:px-4 sm:py-3 ${
+              className={`flex min-w-[8rem] max-w-[10.5rem] shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-left transition sm:min-w-[10rem] sm:gap-3 sm:px-4 ${
                 active
                   ? 'border-accent bg-accent/15 text-white'
                   : 'border-white/10 bg-white/5 text-slate-300'
@@ -64,7 +64,7 @@ export function TerminalTabs({
 
         <button
           aria-label="新建终端"
-          className="inline-flex min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-accent/60 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition hover:bg-accent/20 sm:px-4 sm:py-3"
+          className="inline-flex min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-accent/60 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition hover:bg-accent/20 sm:px-4"
           type="button"
           onClick={onCreate}
         >
