@@ -80,7 +80,8 @@ function TerminalPaneInner({
       convertEol: false,
       cursorBlink: true,
       fontFamily: '"IBM Plex Mono", "SFMono-Regular", monospace',
-      fontSize: 14,
+      fontSize: getResponsiveFontSize(),
+      lineHeight: window.innerWidth < 480 ? 1.08 : 1.12,
       scrollback: 6000,
       theme: TERMINAL_THEME,
     });
@@ -92,6 +93,7 @@ function TerminalPaneInner({
       if (!containerRef.current || !activeRef.current) {
         return;
       }
+      terminal.options.fontSize = getResponsiveFontSize();
       applyBestFit(terminal, fitAddon);
       reportResizeIfChanged(
         session.id,
@@ -173,11 +175,14 @@ function TerminalPaneInner({
 
   return (
     <div
-      className={`h-full min-h-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#0b131d] ${
-        active ? 'block' : 'hidden'
+      className={`min-h-0 flex-1 overflow-hidden rounded-lg border border-white/10 bg-[#0b131d] ${
+        active ? 'flex' : 'hidden'
       }`}
     >
-      <div className="terminal-host h-full min-h-0 px-2 py-2" ref={containerRef} />
+      <div
+        className="terminal-host h-full min-h-0 w-full px-1.5 py-1.5 sm:px-2 sm:py-2"
+        ref={containerRef}
+      />
     </div>
   );
 }
@@ -196,6 +201,16 @@ function focusTerminal(terminal: Terminal): void {
   if (window.innerWidth >= 1024) {
     terminal.focus();
   }
+}
+
+function getResponsiveFontSize(): number {
+  if (window.innerWidth < 380) {
+    return 11;
+  }
+  if (window.innerWidth < 520) {
+    return 12;
+  }
+  return 14;
 }
 
 function applyBestFit(terminal: Terminal, fitAddon: FitAddon): void {

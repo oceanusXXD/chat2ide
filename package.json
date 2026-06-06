@@ -2,7 +2,7 @@
   "name": "chat2ide",
   "version": "1.0.0",
   "private": true,
-  "description": "Remote Codex CLI Terminal Hub",
+  "description": "Self-hosted browser and mobile terminal for long-running Codex CLI sessions",
   "engines": {
     "node": ">=16.20.0"
   },
@@ -13,12 +13,14 @@
     "build": "tsc -p tsconfig.server.json && vite build",
     "build:server": "tsc -p tsconfig.server.json",
     "build:web": "vite build",
+    "preflight": "node scripts/preflight.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p web/tsconfig.json",
     "start": "node dist/server/index.js"
   },
   "dependencies": {
     "cookie": "^0.6.0",
     "express": "^4.21.2",
+    "lucide-react": "^0.468.0",
     "node-pty": "^1.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

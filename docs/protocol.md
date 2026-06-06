@@ -1,14 +1,14 @@
 # 协议
 
-协议定义集中在：
-
-- [src/shared/protocol.ts](/home/coder/data/chat2ide/src/shared/protocol.ts)
+协议类型定义集中在 [src/shared/protocol.ts](../src/shared/protocol.ts)。
 
 ## HTTP API
 
+所有 `/api/*` 响应都会设置 `Cache-Control: no-store`。
+
 ### `GET /api/health`
 
-响应：
+无需登录。
 
 ```json
 {
@@ -20,12 +20,18 @@
 
 ### `GET /api/auth/me`
 
-响应：
-
 ```json
 {
   "authenticated": true,
   "expiresAt": "2026-04-02T12:00:00.000Z"
+}
+```
+
+未登录：
+
+```json
+{
+  "authenticated": false
 }
 ```
 
@@ -39,7 +45,7 @@
 }
 ```
 
-成功响应：
+成功：
 
 ```json
 {
@@ -48,7 +54,7 @@
 }
 ```
 
-失败响应：
+失败：
 
 ```json
 {
@@ -56,21 +62,25 @@
 }
 ```
 
+失败次数过多时返回 `429`，并带 `Retry-After`。
+
 ### `POST /api/auth/logout`
 
-响应：
+成功响应：
 
-- `204 No Content`
+```text
+204 No Content
+```
 
 ### `GET /api/terminals`
 
-响应：
+需要登录。
 
 ```json
 {
   "items": [
     {
-      "id": "term-1",
+      "id": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
       "name": "Codex 1",
       "status": "running",
       "createdAt": "2026-04-02T10:00:00.000Z",
@@ -79,10 +89,9 @@
       "pid": 12345,
       "cols": 120,
       "rows": 32,
-      "generation": 1,
-      "exitCode": null,
-      "signal": null,
-      "lastError": null
+      "lastError": null,
+      "lastExitCode": null,
+      "lastExitSignal": null
     }
   ]
 }
@@ -90,11 +99,11 @@
 
 ### `POST /api/terminals`
 
-请求：
+请求体可为空。服务端会用默认 cwd 和尺寸。
 
 ```json
 {
-  "name": "Codex 2",
+  "name": "Fix auth bug",
   "cwd": "/srv/app",
   "cols": 120,
   "rows": 32
@@ -106,20 +115,29 @@
 ```json
 {
   "item": {
-    "id": "term-2",
-    "name": "Codex 2",
-    "status": "running"
+    "id": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
+    "name": "Fix auth bug",
+    "status": "starting",
+    "createdAt": "2026-04-02T10:00:00.000Z",
+    "updatedAt": "2026-04-02T10:00:00.000Z",
+    "cwd": "/srv/app",
+    "pid": null,
+    "cols": 120,
+    "rows": 32,
+    "lastError": null,
+    "lastExitCode": null,
+    "lastExitSignal": null
   }
 }
 ```
 
-### `PATCH /api/terminals/:id`
+注意：创建后状态是 `starting`。首次 WebSocket `attach` 后才会真正启动 PTY。
 
-请求：
+### `PATCH /api/terminals/:id`
 
 ```json
 {
-  "name": "Fix auth bug"
+  "name": "Run tests"
 }
 ```
 
@@ -128,15 +146,23 @@
 ```json
 {
   "item": {
-    "id": "term-1",
-    "name": "Fix auth bug"
+    "id": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
+    "name": "Run tests",
+    "status": "running",
+    "createdAt": "2026-04-02T10:00:00.000Z",
+    "updatedAt": "2026-04-02T10:05:00.000Z",
+    "cwd": "/srv/app",
+    "pid": 12345,
+    "cols": 120,
+    "rows": 32,
+    "lastError": null,
+    "lastExitCode": null,
+    "lastExitSignal": null
   }
 }
 ```
 
 ### `POST /api/terminals/:id/stop`
-
-响应：
 
 ```json
 {
@@ -146,8 +172,6 @@
 
 ### `POST /api/terminals/:id/restart`
 
-响应：
-
 ```json
 {
   "ok": true
@@ -156,21 +180,21 @@
 
 ### `DELETE /api/terminals/:id`
 
-响应：
+成功响应：
 
-- `204 No Content`
+```text
+204 No Content
+```
 
 ## WebSocket
 
-路径：
-
-- `/ws`
+路径：`/ws`
 
 要求：
 
-- 必须带上登录后获得的 cookie
-- 一个 WebSocket 连接可管理多个 terminal
-- 浏览器需要对每个 terminal 主动发送 `attach`
+- 请求必须携带登录 cookie。
+- 如果设置了 `APP_PUBLIC_ORIGIN`，WebSocket `Origin` 必须完全匹配。
+- 非法消息会被忽略。
 
 ## Client -> Server
 
@@ -179,7 +203,7 @@
 ```json
 {
   "type": "attach",
-  "terminalId": "term-1"
+  "terminalId": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145"
 }
 ```
 
@@ -188,7 +212,7 @@
 ```json
 {
   "type": "input",
-  "terminalId": "term-1",
+  "terminalId": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
   "data": "echo hello\r"
 }
 ```
@@ -198,7 +222,7 @@
 ```json
 {
   "type": "resize",
-  "terminalId": "term-1",
+  "terminalId": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
   "cols": 120,
   "rows": 32
 }
@@ -222,6 +246,14 @@
 }
 ```
 
+### `pong`
+
+```json
+{
+  "type": "pong"
+}
+```
+
 ### `terminal_list`
 
 ```json
@@ -237,31 +269,34 @@
 {
   "type": "terminal_created",
   "item": {
-    "id": "term-1"
+    "id": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
+    "name": "Codex 1",
+    "status": "starting",
+    "createdAt": "2026-04-02T10:00:00.000Z",
+    "updatedAt": "2026-04-02T10:00:00.000Z",
+    "cwd": "/srv/app",
+    "pid": null,
+    "cols": 120,
+    "rows": 32,
+    "lastError": null,
+    "lastExitCode": null,
+    "lastExitSignal": null
   }
 }
 ```
 
 ### `terminal_updated`
 
-```json
-{
-  "type": "terminal_updated",
-  "item": {
-    "id": "term-1",
-    "status": "running"
-  }
-}
-```
+同样携带完整 `TerminalSummary`。
 
 ### `terminal_reset`
 
-表示该终端需要清空当前显示并准备接收新的 replay 或新的 generation。
+表示该终端需要清空当前显示，准备接收新的 replay 或新一代 PTY 输出。
 
 ```json
 {
   "type": "terminal_reset",
-  "terminalId": "term-1"
+  "terminalId": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145"
 }
 ```
 
@@ -270,8 +305,19 @@
 ```json
 {
   "type": "terminal_output",
-  "terminalId": "term-1",
+  "terminalId": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
   "data": "\u001b[?2004h..."
+}
+```
+
+Replay 输出会带：
+
+```json
+{
+  "type": "terminal_output",
+  "terminalId": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
+  "data": "previous output",
+  "replay": true
 }
 ```
 
@@ -280,7 +326,7 @@
 ```json
 {
   "type": "terminal_exit",
-  "terminalId": "term-1",
+  "terminalId": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
   "code": 0,
   "signal": null
 }
@@ -291,7 +337,7 @@
 ```json
 {
   "type": "terminal_error",
-  "terminalId": "term-1",
+  "terminalId": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
   "message": "启动 Codex CLI 失败"
 }
 ```
@@ -301,24 +347,16 @@
 ```json
 {
   "type": "terminal_closed",
-  "terminalId": "term-1"
-}
-```
-
-### `pong`
-
-```json
-{
-  "type": "pong"
+  "terminalId": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145"
 }
 ```
 
 ## Attach / Replay 顺序
 
-浏览器 attach 某个 terminal 后，服务端按如下顺序发送：
+浏览器 attach 某个 terminal 后，服务端按顺序发送：
 
 1. `terminal_reset`
 2. `terminal_updated`
-3. 最近 ring buffer 中保存的 `terminal_output` 块
+3. ring buffer 中保存的 `terminal_output` replay 块
 
-后续只有已 attach 的客户端才会继续收到这个 terminal 的实时输出。
+后续只有已 attach 的客户端才会继续收到该 terminal 的实时输出。

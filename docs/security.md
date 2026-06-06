@@ -1,67 +1,70 @@
 # 安全边界
 
+`chat2ide` 是单用户远程终端入口。登录后的用户等价于能以运行 `chat2ide` 的系统账户在服务器上执行命令。
+
+这不是多用户权限系统，不是代码执行沙箱，也不是企业审计平台。
+
 ## 默认安全模型
 
-这个系统是：
+- 单用户。
+- 单服务器。
+- 服务监听 `127.0.0.1`。
+- 通过 Cloudflare Tunnel 暴露 HTTPS 入口。
+- PIN 登录。
+- `HttpOnly` session cookie。
+- 内存 session。
+- 无数据库。
 
-- 单用户
-- 单服务器
-- 内网监听
-- Cloudflare Tunnel 暴露公网
-- PIN 登录
-- 内存 session
+## 已实现措施
 
-它不是多用户 SaaS，也不是高隔离托管平台。
+### 服务端 PIN 校验
 
-## 已实现的最小安全措施
+- PIN 不内置在前端。
+- 支持明文 `APP_PIN` 和 scrypt 格式 `APP_PIN_HASH`。
+- 生产环境建议只使用 `APP_PIN_HASH`。
 
-### PIN 服务端校验
+### 登录失败限速
 
-- PIN 只在服务端校验
-- 前端不会内置 PIN
-- 支持 `APP_PIN` 或 `APP_PIN_HASH`
+- 同一来源连续失败会触发短暂锁定。
+- 错误信息保持模糊，不区分 PIN 错误和暂时锁定。
 
-### 登录失败限制
+### Cookie
 
-- 连续输错会触发短暂锁定
-- 返回模糊错误，不区分“PIN 错”还是“暂时锁定”
+- `HttpOnly`。
+- `SameSite=Lax`。
+- `Secure` 根据 HTTPS、代理头和 `APP_COOKIE_SECURE` 推断。
 
-### Session Cookie
+### Origin 校验
 
-- `HttpOnly`
-- `SameSite=Lax`
-- `Secure` 根据 HTTPS / Cloudflare / 配置推断
-
-### 代理感知
-
-- 支持 `trust proxy`
-- 可以正确处理 `X-Forwarded-*`
+如果设置 `APP_PUBLIC_ORIGIN`，WebSocket 请求的 `Origin` 必须完全匹配。
 
 ## 生产建议
 
-- 始终监听 `127.0.0.1`
-- 始终通过 Cloudflare 域名访问
-- 始终设置 `APP_PUBLIC_ORIGIN`
-- 始终启用 `APP_TRUST_PROXY=1`
-- 优先使用 `APP_PIN_HASH`
+- 始终监听 `127.0.0.1`，不要直接绑定公网地址。
+- 始终设置 `APP_PUBLIC_ORIGIN`。
+- Cloudflare Tunnel 后保持 `APP_TRUST_PROXY=1`。
+- 用最小权限系统账户运行。
+- 把 `CODEX_CWD` 限制到具体项目目录。
+- 保护 `.env` 文件，尤其是 PIN hash 和运行配置。
+- 保护服务器 SSH 和 Cloudflare 账户。
 
 ## 不做的事
 
-- 不做多用户权限系统
-- 不做数据库审计日志
-- 不做复杂 token 刷新机制
-- 不做文件级 ACL
-- 不做终端内容脱敏
+- 不做多用户账号体系。
+- 不做角色权限、文件级 ACL 或项目级授权。
+- 不做数据库审计日志。
+- 不做终端内容脱敏。
+- 不保证服务重启后恢复终端进程。
+- 不隔离 Codex CLI 能执行的命令。
 
-## 需要自行承担的边界
+## 风险理解
 
-- 登录后的用户就是这台服务器上的单一控制者
-- 终端有执行服务器命令的能力
-- 如果服务器本身被入侵，应用层 PIN 不能替代主机安全
+如果攻击者拿到 PIN 或 session cookie，就能进入远程终端。进入后能够执行的范围取决于运行 `chat2ide` 的系统账户权限。
 
-所以你仍然需要：
+因此，安全边界应放在三层：
 
-- 保护服务器 SSH
-- 保护 Cloudflare 账户
-- 使用最小权限系统账户运行 `chat2ide`
-- 控制 `CODEX_CWD` 和 CLI 执行用户权限
+1. Cloudflare 和 HTTPS 入口。
+2. `chat2ide` 的 PIN/session。
+3. 服务器系统账户和文件权限。
+
+不要把应用层 PIN 当成服务器整体安全的替代品。

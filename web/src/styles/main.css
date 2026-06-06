@@ -17,12 +17,18 @@ body {
   font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
   background: #05080d;
   overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 button,
 input,
 textarea {
   font: inherit;
+}
+
+button,
+textarea {
+  touch-action: manipulation;
 }
 
 * {
@@ -39,6 +45,10 @@ textarea {
 
 .terminal-host .xterm {
   height: 100%;
+}
+
+.terminal-host .xterm-helper-textarea {
+  font-size: 16px;
 }
 
 .terminal-host .xterm-viewport {

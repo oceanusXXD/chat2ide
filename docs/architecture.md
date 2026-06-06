@@ -1,144 +1,126 @@
 # 架构
 
-## 产品裁决
+`chat2ide` 的架构围绕一个主路径：浏览器或手机通过 WebSocket 附着到服务器上的真实 PTY，PTY 内运行 Codex CLI。
 
-当前产品裁决非常明确：
+## 组件
 
-- `CLI direct mode` 是唯一主路径
-- `PTY + xterm.js` 是唯一主呈现路径
-- `Cloudflare Tunnel` 是默认公网暴露方式
-- `PIN + HttpOnly session cookie` 是默认认证方式
-- `helper / relay / vscode-extension` 降为 legacy，不参与主闭环
-- 不使用数据库
+### 前端终端应用
 
-## 核心组件
+相关文件：
 
-### 1. Frontend Terminal App
-
-位置：
-
-- [web/src/App.tsx](/home/coder/data/chat2ide/web/src/App.tsx)
-- [web/src/components/TerminalPane.tsx](/home/coder/data/chat2ide/web/src/components/TerminalPane.tsx)
-- [web/src/components/TerminalTabs.tsx](/home/coder/data/chat2ide/web/src/components/TerminalTabs.tsx)
-- [web/src/hooks/useTerminalSocket.ts](/home/coder/data/chat2ide/web/src/hooks/useTerminalSocket.ts)
+- [web/src/App.tsx](../web/src/App.tsx)
+- [web/src/components/TerminalPane.tsx](../web/src/components/TerminalPane.tsx)
+- [web/src/components/TerminalTabs.tsx](../web/src/components/TerminalTabs.tsx)
+- [web/src/components/ComposerBar.tsx](../web/src/components/ComposerBar.tsx)
+- [web/src/hooks/useTerminalSocket.ts](../web/src/hooks/useTerminalSocket.ts)
 
 职责：
 
-- PIN 登录
-- 顶部状态区
-- 多 terminal tabs
-- `xterm.js` 终端视图
-- 移动端输入栏
-- stop / restart / close / reconnect
-- 断线后重新附着
+- PIN 登录页与主控制台。
+- 多终端标签页。
+- `xterm.js` 终端视图。
+- 手机端底部输入栏。
+- `Ctrl+C`、停止、重启、关闭、重连、刷新输出。
+- WebSocket 断线重连与 ring buffer 回放。
 
-### 2. HTTP + WebSocket Server
+### HTTP + WebSocket 服务
 
-位置：
+相关文件：
 
-- [src/server/index.ts](/home/coder/data/chat2ide/src/server/index.ts)
-- [src/server/ws/terminalSocketHub.ts](/home/coder/data/chat2ide/src/server/ws/terminalSocketHub.ts)
-
-职责：
-
-- 提供 `/api/*`
-- 提供 `/ws`
-- 处理 PIN 登录、cookie、session
-- 将前端操作转发给 terminal manager
-- 提供静态前端产物
-
-### 3. Terminal Session Manager
-
-位置：
-
-- [src/server/terminal/terminalSessionManager.ts](/home/coder/data/chat2ide/src/server/terminal/terminalSessionManager.ts)
-- [src/server/terminal/codexPtyRunner.ts](/home/coder/data/chat2ide/src/server/terminal/codexPtyRunner.ts)
-- [src/server/terminal/ringBuffer.ts](/home/coder/data/chat2ide/src/server/terminal/ringBuffer.ts)
+- [src/server/index.ts](../src/server/index.ts)
+- [src/server/ws/terminalSocketHub.ts](../src/server/ws/terminalSocketHub.ts)
 
 职责：
 
-- 创建多个独立终端
-- 为每个终端维护：
-  - `id`
-  - `name`
-  - `status`
-  - `cwd`
-  - `pid`
-  - `cols`
-  - `rows`
-  - `lastExitCode`
-  - `lastExitSignal`
-  - `ring buffer`
-- 支持：
-  - `create`
-  - `list`
-  - `rename`（可选）
-  - `input`
-  - `resize`
-  - `stop`
-  - `restart`
-  - `close`
-  - `replay`
+- 提供 `/api/*` HTTP API。
+- 提供 `/ws` WebSocket。
+- 处理 PIN 登录、cookie、session。
+- 校验 WebSocket origin。
+- 把前端输入、resize、attach 转发给终端管理器。
+- 在生产构建后提供静态前端资源。
 
-### 4. Auth / Session
+### 终端会话管理
 
-位置：
+相关文件：
 
-- [src/server/auth/pinAuth.ts](/home/coder/data/chat2ide/src/server/auth/pinAuth.ts)
-- [src/server/auth/sessionManager.ts](/home/coder/data/chat2ide/src/server/auth/sessionManager.ts)
-- [src/server/config.ts](/home/coder/data/chat2ide/src/server/config.ts)
+- [src/server/terminal/terminalSessionManager.ts](../src/server/terminal/terminalSessionManager.ts)
+- [src/server/terminal/codexPtyRunner.ts](../src/server/terminal/codexPtyRunner.ts)
+- [src/server/terminal/ringBuffer.ts](../src/server/terminal/ringBuffer.ts)
 
 职责：
 
-- 校验 `APP_PIN` 或 `APP_PIN_HASH`
-- 内存 session
-- 登录失败限速与短暂锁定
-- 根据 `X-Forwarded-Proto` / `APP_PUBLIC_ORIGIN` / `APP_COOKIE_SECURE` 决定 secure cookie
+- 创建多个独立终端记录。
+- 维护每个终端的 `id`、`name`、`status`、`cwd`、`pid`、尺寸、最近退出信息和 ring buffer。
+- 用 `node-pty` 启动 Codex CLI。
+- 广播输出、退出、错误和状态更新。
+- 在重启终端时清空 ring buffer 并启动新 PTY。
+
+### 认证与配置
+
+相关文件：
+
+- [src/server/auth/pinAuth.ts](../src/server/auth/pinAuth.ts)
+- [src/server/auth/sessionManager.ts](../src/server/auth/sessionManager.ts)
+- [src/server/config.ts](../src/server/config.ts)
+
+职责：
+
+- 从 `.env`、`.env.local` 和进程环境变量加载配置。
+- 校验 `APP_PIN` 或 `APP_PIN_HASH`。
+- 登录失败限速。
+- 管理内存 session。
+- 根据 HTTPS、代理头和配置决定 cookie secure 行为。
 
 ## 数据流
 
 ### 登录
 
-1. 浏览器 `POST /api/auth/pin`
-2. 服务端校验 PIN
-3. 服务端返回 HttpOnly cookie
-4. 浏览器调用 `/api/auth/me` 和 `/ws`
+1. 浏览器请求 `GET /api/auth/me` 判断当前 session。
+2. 未登录时，用户提交 `POST /api/auth/pin`。
+3. 服务端校验 PIN，设置 `HttpOnly` cookie。
+4. 前端进入主控制台并建立 `/ws` 连接。
 
-### 终端附着
+### 新建终端
 
-1. 浏览器建立 WebSocket
-2. 浏览器对每个 terminal 发送 `{ type: "attach", terminalId }`
-3. 服务端返回：
-   - `terminal_reset`
-   - `terminal_updated`
-   - 最近 ring buffer 输出块
-4. 后续该 terminal 的输出只推给已 attach 的客户端
+1. 前端请求 `POST /api/terminals`。
+2. 服务端创建一个 `starting` 状态的终端记录，但还不启动 PTY。
+3. 前端切换到该标签页并发送 WebSocket `attach`。
+4. 服务端发送 `terminal_reset`、`terminal_updated` 和 ring buffer replay。
+5. 如果这是首次 attach，服务端调用 `startIfPending` 启动 Codex CLI PTY。
 
-### 输入
+这个延迟启动语义能避免 Codex CLI 的启动阶段交互输出在前端 xterm 尚未准备好时丢失。
 
-1. 浏览器发送 `{ type: "input", terminalId, data }`
-2. 服务端写入对应 PTY
-3. PTY 输出块经 WebSocket 回推
-4. `xterm.js` 原样写入终端视图
+### 输入与输出
 
-## 重连策略
+1. 前端发送 `{ "type": "input", "terminalId": "...", "data": "...\r" }`。
+2. 服务端写入对应 PTY。
+3. PTY 输出进入 ring buffer。
+4. 服务端把输出推送给已 attach 该 terminal 的 WebSocket 客户端。
+5. 前端把原始 PTY 字节流写入 `xterm.js`。
 
-- 浏览器断线后会重连 WebSocket
-- 重连成功后重新对每个已知 terminal 执行 `attach`
-- 服务端回放 ring buffer
-- 终端视图恢复到最近缓冲状态
+### 重连与回放
 
-## 为什么选择 `node-pty`
+1. 浏览器 WebSocket 断线后自动重连。
+2. 重连成功后，前端对当前活动终端重新发送 `attach`。
+3. 服务端先发 `terminal_reset`，再按顺序回放 ring buffer。
+4. 回放结束后继续推送实时输出。
 
-- 需要保留真实终端语义
-- 需要尽量原样保留 CLI 输出
-- 需要支持长生命周期进程，而不是一次 prompt 一次退出
-- 需要支持多终端
-- 需要处理终端尺寸变化
-- 需要 attach / detach / replay
+## 为什么使用 PTY
 
-## 仓库收敛状态
+Codex CLI 是交互式命令行工具。普通 stdout/stderr 管道无法完整表达终端行为。`node-pty` 能保留：
 
-旧的 `helper/`、`vscode-extension/`、relay/local 相关目录和重复运行时目录已经从当前仓库主路径中移除。
+- ANSI 颜色和光标控制。
+- 交互式输入。
+- 终端尺寸变化。
+- Ctrl+C 等控制字符。
+- 长生命周期进程。
 
-当前仓库只保留远程终端控制台所需的活动代码与文档。
+## 状态持久化边界
+
+所有运行状态都在内存中：
+
+- 登录 session。
+- 终端进程。
+- 每个终端的 ring buffer。
+
+服务进程重启后，这些状态都会消失。当前版本不引入数据库，也不尝试恢复已退出的 PTY 进程。

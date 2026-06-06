@@ -1,4 +1,12 @@
 import { FormEvent } from 'react';
+import {
+  Ban,
+  type LucideIcon,
+  RotateCw,
+  SendHorizontal,
+  Square,
+  X,
+} from 'lucide-react';
 
 import { TerminalSummary } from '@shared/protocol';
 
@@ -35,66 +43,95 @@ export function ComposerBar({
   };
 
   return (
-    <div className="border-t border-white/10 bg-panelAlt/95 px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur">
-      <form className="space-y-3" onSubmit={handleSubmit}>
+    <div className="border-t border-white/10 bg-panelAlt/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur sm:px-3 sm:pt-3 sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      <form className="space-y-2 sm:space-y-3" onSubmit={handleSubmit}>
         <textarea
-          className="min-h-[5.75rem] max-h-[40dvh] w-full resize-none rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-slate-100 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30 disabled:opacity-50"
+          autoCapitalize="none"
+          autoCorrect="off"
+          className="min-h-[3rem] max-h-[24dvh] w-full resize-none rounded-lg border border-white/10 bg-slate-950/80 px-3 py-2 text-[13px] leading-5 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-accent focus:ring-2 focus:ring-accent/30 disabled:opacity-50 sm:min-h-[5.75rem] sm:px-4 sm:py-3 sm:text-sm sm:leading-6"
           disabled={!activeTerminal || busy}
+          enterKeyHint="send"
           placeholder={
             !activeTerminal
-              ? '先创建一个终端标签页'
+              ? '先新建一个 Codex 终端'
               : !connected
-              ? '终端正在重连，当前输入不会发送到 Codex CLI。'
-              : activeTerminal
-              ? '输入后发送到当前 Codex CLI。手机端建议用这里，而不是依赖终端原生键盘。'
-              : ''
+              ? '连接正在恢复，当前输入暂不会发送'
+              : '输入命令或提示词，发送到当前 Codex CLI'
           }
+          spellCheck={false}
           value={value}
           onChange={(event) => onChange(event.target.value)}
         />
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <div className="grid grid-cols-[minmax(0,1fr)_repeat(4,2.75rem)] gap-1.5 sm:grid-cols-5 sm:gap-2">
           <button
-            className="rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent px-3 text-sm font-semibold text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
             disabled={!inputReady || !value.trim()}
             type="submit"
           >
-            Send
+            <SendHorizontal aria-hidden className="h-4 w-4" />
+            <span>发送</span>
           </button>
-          <button
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-100 disabled:opacity-50"
+          <ControlButton
+            label="Ctrl+C"
             disabled={!inputReady}
-            type="button"
+            icon={Ban}
             onClick={onInterrupt}
-          >
-            Ctrl+C
-          </button>
-          <button
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-100 disabled:opacity-50"
+          />
+          <ControlButton
+            label="停止"
             disabled={!activeTerminal || busy}
-            type="button"
+            icon={Square}
             onClick={onStop}
-          >
-            Stop
-          </button>
-          <button
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-100 disabled:opacity-50"
+          />
+          <ControlButton
+            label="重启"
             disabled={!activeTerminal || busy}
-            type="button"
+            icon={RotateCw}
             onClick={onRestart}
-          >
-            Restart
-          </button>
-          <button
-            className="rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm font-medium text-red-100 disabled:opacity-50"
+          />
+          <ControlButton
+            label="关闭"
             disabled={!activeTerminal || busy}
-            type="button"
+            icon={X}
+            tone="danger"
             onClick={onClose}
-          >
-            Close
-          </button>
+          />
         </div>
       </form>
     </div>
+  );
+}
+
+function ControlButton({
+  disabled,
+  icon: Icon,
+  label,
+  onClick,
+  tone = 'default',
+}: {
+  disabled?: boolean;
+  icon: LucideIcon;
+  label: string;
+  onClick(): void;
+  tone?: 'default' | 'danger';
+}) {
+  const toneClass =
+    tone === 'danger'
+      ? 'border-danger/40 bg-danger/10 text-red-100'
+      : 'border-white/10 bg-white/5 text-slate-100';
+
+  return (
+    <button
+      aria-label={label}
+      className={`inline-flex min-h-11 items-center justify-center rounded-lg border text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 sm:gap-1.5 sm:px-4 sm:text-sm ${toneClass}`}
+      disabled={disabled}
+      title={label}
+      type="button"
+      onClick={onClick}
+    >
+      <Icon aria-hidden className="h-4 w-4" />
+      <span className="sr-only sm:not-sr-only">{label}</span>
+    </button>
   );
 }

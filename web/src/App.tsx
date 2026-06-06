@@ -1,4 +1,19 @@
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  LogOut,
+  type LucideIcon,
+  Pencil,
+  Plus,
+  RefreshCw,
+  RotateCw,
+} from 'lucide-react';
 
 import { ServerWsMessage, TerminalSummary } from '@shared/protocol';
 
@@ -8,8 +23,8 @@ import {
   getAuthStatus,
   listTerminals,
   loginWithPin,
-  renameTerminal,
   logout,
+  renameTerminal,
   restartTerminal,
   stopTerminal,
 } from './lib/api';
@@ -30,11 +45,8 @@ export default function App() {
   const [composerValue, setComposerValue] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [unreadById, setUnreadById] = useState<Record<string, number>>({});
-  // imperative controller 只负责桥接 xterm 实例，不参与 React 渲染。
   const paneControllersRef = useRef(new Map<string, TerminalPaneController>());
-  // 浏览器同一时刻只订阅一个活动 terminal 的实时输出，其余 terminal 靠回放按需恢复。
   const attachedTerminalIdRef = useRef<string | null>(null);
-  // socket 回调里经常需要读取最新 terminal 列表，避免闭包拿到旧值。
   const terminalsRef = useRef<TerminalSummary[]>([]);
   const activeTerminalIdRef = useRef<string | null>(null);
 
@@ -195,17 +207,13 @@ export default function App() {
     attachedTerminalIdRef.current = null;
   }, []);
 
-  const {
-    connectionState,
-    connectionEpoch,
-    reconnect,
-    sendMessage,
-  } = useTerminalSocket({
-    enabled: authReady && authenticated,
-    onAuthError: handleSocketAuthError,
-    onMessage: handleSocketMessage,
-    onOpen: handleSocketOpen,
-  });
+  const { connectionState, connectionEpoch, reconnect, sendMessage } =
+    useTerminalSocket({
+      enabled: authReady && authenticated,
+      onAuthError: handleSocketAuthError,
+      onMessage: handleSocketMessage,
+      onOpen: handleSocketOpen,
+    });
 
   const activeTerminal = useMemo(
     () => terminals.find((terminal) => terminal.id === activeTerminalId) ?? null,
@@ -247,8 +255,6 @@ export default function App() {
     }
 
     const timer = window.setTimeout(() => {
-      // 多后台高速输出时，浏览器只订阅当前活动 tab 的实时流。
-      // 切换 tab 或主动刷新时，再对目标 terminal 触发一次回放与后续流式输出。
       requestTerminalReplay(activeTerminalId);
     }, 0);
 
@@ -286,20 +292,23 @@ export default function App() {
     [sendMessage],
   );
 
-  const handleLogin = useCallback(async (pin: string) => {
-    setLoginBusy(true);
-    setAuthError(null);
-    try {
-      await loginWithPin(pin);
-      setAuthenticated(true);
-      setNotice(null);
-      await loadTerminals();
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : '登录失败');
-    } finally {
-      setLoginBusy(false);
-    }
-  }, [loadTerminals]);
+  const handleLogin = useCallback(
+    async (pin: string) => {
+      setLoginBusy(true);
+      setAuthError(null);
+      try {
+        await loginWithPin(pin);
+        setAuthenticated(true);
+        setNotice(null);
+        await loadTerminals();
+      } catch (error) {
+        setAuthError(error instanceof Error ? error.message : '登录失败');
+      } finally {
+        setLoginBusy(false);
+      }
+    },
+    [loadTerminals],
+  );
 
   const handleLogout = useCallback(async () => {
     setBusyAction(true);
@@ -337,7 +346,7 @@ export default function App() {
       return;
     }
 
-    const nextName = window.prompt('Rename terminal', activeTerminal.name);
+    const nextName = window.prompt('重命名终端', activeTerminal.name);
     if (!nextName || nextName.trim() === activeTerminal.name) {
       return;
     }
@@ -447,8 +456,8 @@ export default function App() {
   if (!authReady) {
     return (
       <main className="flex min-h-[100dvh] items-center justify-center bg-canvas text-slate-200">
-        <div className="rounded-2xl border border-white/10 bg-panel px-6 py-4 shadow-shell">
-          Loading terminal hub...
+        <div className="rounded-lg border border-white/10 bg-panel px-6 py-4 shadow-shell">
+          正在加载远程终端...
         </div>
       </main>
     );
@@ -459,22 +468,22 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell flex min-h-[100dvh] flex-col bg-[radial-gradient(circle_at_top,_rgba(77,163,255,0.14),_transparent_28%),radial-gradient(circle_at_bottom_left,_rgba(229,127,74,0.12),_transparent_22%),linear-gradient(180deg,_#09111b,_#060b10)] text-ink">
-      <header className="border-b border-white/10 bg-panel/95 px-4 py-4 backdrop-blur">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-start gap-3">
+    <main className="app-shell flex min-h-[100dvh] flex-col bg-[#071019] text-ink">
+      <header className="shrink-0 border-b border-white/10 bg-panel/95 px-3 py-2.5 backdrop-blur sm:px-4 sm:py-4">
+        <div className="flex flex-col gap-2 sm:gap-3">
+          <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-xs uppercase tracking-[0.28em] text-slate-400">
-                chat2ide
+              <p className="text-[11px] leading-4 text-slate-400 sm:text-xs">
+                chat2ide · 单用户 AI 编程控制台
               </p>
-              <h1 className="truncate text-2xl font-semibold text-white">
-                Remote Codex CLI Terminal Hub
+              <h1 className="truncate text-xl font-semibold leading-tight text-white sm:text-2xl">
+                私有 Codex 远程终端
               </h1>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <StatusChip
-                label="socket"
+                label="连接"
                 tone={
                   connectionState === 'connected'
                     ? 'success'
@@ -484,76 +493,82 @@ export default function App() {
                     ? 'danger'
                     : 'muted'
                 }
-                value={connectionState}
+                value={formatConnectionState(connectionState)}
               />
 
               {activeTerminal ? (
-                <StatusChip
-                  label={activeTerminal.name}
-                  tone={
-                    activeTerminal.status === 'running'
-                      ? 'success'
-                      : activeTerminal.status === 'starting'
-                      ? 'warning'
-                      : activeTerminal.status === 'error'
-                      ? 'danger'
-                      : 'muted'
-                  }
-                  value={activeTerminal.status}
-                />
+                <div className="hidden sm:block">
+                  <StatusChip
+                    label={activeTerminal.name}
+                    tone={
+                      activeTerminal.status === 'running'
+                        ? 'success'
+                        : activeTerminal.status === 'starting'
+                        ? 'warning'
+                        : activeTerminal.status === 'error'
+                        ? 'danger'
+                        : 'muted'
+                    }
+                    value={formatTerminalStatus(activeTerminal.status)}
+                  />
+                </div>
               ) : null}
             </div>
           </div>
 
-          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-            <button
-              className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100"
-              type="button"
-              onClick={handleCreateTerminal}
-            >
-              New Terminal
-            </button>
-            <button
-              className="hidden shrink-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 disabled:opacity-50 sm:inline-flex"
-              disabled={!activeTerminal || busyAction}
-              type="button"
-              onClick={handleRenameTerminal}
-            >
-              Rename
-            </button>
-            <button
-              className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100"
-              type="button"
-              onClick={reconnect}
-            >
-              Reconnect
-            </button>
-            <button
-              className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 disabled:opacity-50"
-              disabled={!activeTerminal || connectionState !== 'connected'}
-              type="button"
-              onClick={handleRefreshActiveTerminal}
-            >
-              刷新输出
-            </button>
-            <button
-              className="shrink-0 rounded-2xl border border-danger/40 bg-danger/10 px-4 py-2 text-sm font-medium text-red-100"
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] sm:gap-2">
+            <ToolbarButton
+              icon={Plus}
+              label="新建终端"
               disabled={busyAction}
-              type="button"
+              onClick={handleCreateTerminal}
+            />
+            <ToolbarButton
+              icon={Pencil}
+              label="重命名"
+              disabled={!activeTerminal || busyAction}
+              hideLabelOnMobile
+              onClick={handleRenameTerminal}
+            />
+            <ToolbarButton
+              icon={RotateCw}
+              label="重连"
+              disabled={busyAction}
+              hideLabelOnMobile
+              onClick={reconnect}
+            />
+            <ToolbarButton
+              icon={RefreshCw}
+              label="刷新输出"
+              disabled={!activeTerminal || connectionState !== 'connected'}
+              hideLabelOnMobile
+              onClick={handleRefreshActiveTerminal}
+            />
+            <ToolbarButton
+              icon={LogOut}
+              label="退出登录"
+              tone="danger"
+              disabled={busyAction}
+              hideLabelOnMobile
               onClick={handleLogout}
-            >
-              Logout
-            </button>
+            />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.18em] text-slate-400">
-            <span className="max-w-full truncate">{activeTerminal?.cwd ?? 'No terminal selected'}</span>
-            {activeTerminal?.pid ? <span>PID {activeTerminal.pid}</span> : null}
+          <div className="flex min-w-0 items-center gap-2 text-[11px] leading-4 text-slate-400 sm:text-xs">
+            {activeTerminal ? (
+              <span className="shrink-0 text-slate-300 sm:hidden">
+                {activeTerminal.name} · {formatTerminalStatus(activeTerminal.status)}
+              </span>
+            ) : null}
+            <span className="min-w-0 flex-1 truncate">
+              {activeTerminal?.cwd ?? '尚未选择终端'}
+            </span>
+            {activeTerminal?.pid ? <span className="shrink-0">PID {activeTerminal.pid}</span> : null}
           </div>
         </div>
 
         {notice ? (
-          <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
+          <div className="mt-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200 sm:mt-3 sm:px-4 sm:py-3 sm:text-sm">
             {notice}
           </div>
         ) : null}
@@ -567,12 +582,11 @@ export default function App() {
         onSelect={handleSelectTerminal}
       />
 
-      <section className="flex min-h-0 flex-1 flex-col gap-3 px-3 py-3">
-        <div className="flex min-h-0 flex-1 flex-col rounded-[28px] border border-white/10 bg-panel/85 p-3 shadow-shell">
+      <section className="flex min-h-0 flex-1 flex-col px-2 py-2 sm:px-3 sm:py-3">
+        <div className="flex min-h-0 flex-1 flex-col">
           {terminals.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center rounded-[24px] border border-dashed border-white/10 bg-[#0b131d] px-8 text-center text-slate-400">
-              还没有活跃终端。点击上方的 New Terminal，服务器会直接启动一个新的
-              Codex CLI PTY 会话。
+            <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-white/10 bg-[#0b131d] px-6 text-center text-sm leading-6 text-slate-400">
+              还没有活动终端。新建一个 Codex 会话后，浏览器连接并附着到该标签页时会启动服务器上的 PTY 进程。
             </div>
           ) : (
             terminals.map((terminal) => (
@@ -589,7 +603,7 @@ export default function App() {
         </div>
       </section>
 
-      <div className="sticky bottom-0 z-10 pb-[env(safe-area-inset-bottom)]">
+      <div className="sticky bottom-0 z-10 shrink-0 pb-[env(safe-area-inset-bottom)]">
         <ComposerBar
           activeTerminal={activeTerminal}
           busy={busyAction}
@@ -626,11 +640,78 @@ function StatusChip({
       : 'border-white/10 bg-white/5 text-slate-200';
 
   return (
-    <div className={`rounded-2xl border px-3 py-2 text-xs uppercase tracking-[0.16em] ${toneClass}`}>
-      <span className="mr-2 text-slate-400">{label}</span>
-      <span>{value}</span>
+    <div
+      className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] leading-none ${toneClass}`}
+    >
+      <span className="text-slate-400">{label}</span>
+      <span className="font-medium">{value}</span>
     </div>
   );
+}
+
+function ToolbarButton({
+  disabled,
+  hideLabelOnMobile,
+  icon: Icon,
+  label,
+  onClick,
+  tone = 'default',
+}: {
+  disabled?: boolean;
+  hideLabelOnMobile?: boolean;
+  icon: LucideIcon;
+  label: string;
+  onClick(): void;
+  tone?: 'default' | 'danger';
+}) {
+  const toneClass =
+    tone === 'danger'
+      ? 'border-danger/40 bg-danger/10 text-red-100'
+      : 'border-white/10 bg-white/5 text-slate-100';
+
+  return (
+    <button
+      aria-label={label}
+      className={`inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm ${toneClass}`}
+      disabled={disabled}
+      title={label}
+      type="button"
+      onClick={onClick}
+    >
+      <Icon aria-hidden className="h-4 w-4" />
+      <span className={hideLabelOnMobile ? 'hidden sm:inline' : ''}>{label}</span>
+    </button>
+  );
+}
+
+function formatConnectionState(state: string): string {
+  switch (state) {
+    case 'logged_out':
+      return '未登录';
+    case 'connecting':
+      return '连接中';
+    case 'connected':
+      return '已连接';
+    case 'disconnected':
+      return '已断开';
+    case 'auth_error':
+      return '登录失效';
+    default:
+      return state;
+  }
+}
+
+function formatTerminalStatus(status: TerminalSummary['status']): string {
+  switch (status) {
+    case 'starting':
+      return '启动中';
+    case 'running':
+      return '运行中';
+    case 'stopped':
+      return '已停止';
+    case 'error':
+      return '错误';
+  }
 }
 
 function upsertTerminal(
