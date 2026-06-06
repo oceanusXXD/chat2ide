@@ -50,16 +50,15 @@ Before calling an integration ready on a new host, verify four things: the comma
 | Anthropic Claude Code | Yes | `CODEX_COMMAND=claude` | Run `claude auth login` or the account login flow on the server. | [Claude Code CLI reference](https://code.claude.com/docs/en/cli-reference) |
 | Google Gemini CLI | Yes | `CODEX_COMMAND=gemini` | Install `@google/gemini-cli`, run `gemini`, and complete Google authentication. | [Gemini CLI installation](https://geminicli.com/docs/get-started/installation/) |
 | Cursor Agent CLI | Yes | `CODEX_COMMAND=cursor-agent` | Install Cursor CLI and authenticate it. This controls the terminal agent, not the Cursor editor GUI. | [Cursor CLI docs](https://cursor.com/docs/cli/overview) |
-| Qoder CLI | Yes | `CODEX_COMMAND=qodercli` | Install `@qoder-ai/qodercli`, run `qodercli`, then use `/login` or `QODER_PERSONAL_ACCESS_TOKEN`. | [Qoder CLI quick start](https://docs.qoder.com/en/cli/quick-start) |
-| Trae Agent CLI | Yes | `CODEX_COMMAND=trae-cli`, `CODEX_ARGS=["interactive"]` | Use the open-source `trae-agent` CLI. For one-off tasks, run `trae-cli run "<task>"` inside a shell or wrapper. | [trae-agent](https://github.com/bytedance/trae-agent) |
+| Qoder CLI | Yes | `CODEX_COMMAND=qodercli` | Install `@qoder-ai/qodercli`, run `qodercli`, then use `/login` or `QODER_PERSONAL_ACCESS_TOKEN`. If you refer to qCoder in this project, it means Qoder. | [Qoder CLI quick start](https://docs.qoder.com/en/cli/quick-start) |
+| Trae Agent CLI | Yes | `CODEX_COMMAND=trae-cli`, `CODEX_ARGS=["interactive"]` | Use the open-source `trae-agent` CLI. For one-off tasks, run `trae-cli run "<task>"` inside a shell or wrapper. | [trae-agent README](https://github.com/bytedance/trae-agent/blob/main/README.md) |
 | Qwen Code | Yes | `CODEX_COMMAND=qwen` | Install `@qwen-code/qwen-code`, run `qwen`, then configure `/auth`. | [Qwen Code](https://github.com/QwenLM/qwen-code) |
 | Kiro CLI | Yes | `CODEX_COMMAND=kiro-cli`, `CODEX_ARGS=["chat"]` | Install Kiro CLI, complete browser authentication, then start chat from the project directory. | [Kiro CLI installation](https://kiro.dev/docs/cli/installation/) |
 | GitHub Copilot CLI | Yes, if the standalone CLI is installed | `CODEX_COMMAND=copilot` | Install Copilot CLI, ensure organization policy allows it, and sign in. Use a wrapper if you only have `gh copilot`. | [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/cli-getting-started) |
 | Aider | Yes | `CODEX_COMMAND=aider` | Install `aider-chat`, configure model credentials, and start it in the repo. | [Aider installation](https://aider.chat/docs/install.html) |
 | Goose CLI | Yes | `CODEX_COMMAND=goose`, `CODEX_ARGS=["session"]` | Install the CLI, configure an LLM provider, then run `goose session`. | [Goose installation](https://goose-docs.ai/docs/getting-started/installation/) |
 | Windsurf / Devin Desktop | Indirect | `CODEX_COMMAND=bash` or `powershell` | Use Cascade and the enhanced terminal inside the IDE; use `chat2ide` beside it for mobile shell, tests, git, and other CLI agents. | [Terminal and Cascade docs](https://docs.devin.ai/desktop/terminal) |
-| Trae IDE | Indirect unless using `trae-agent` | Use `trae-cli` for direct PTY control | `chat2ide` is not remote desktop and does not control IDE plugin state. | [trae-agent](https://github.com/bytedance/trae-agent) |
-| qCoder / QCoder-named tools | Only if they expose a real CLI | Point `CODEX_COMMAND` at that binary | The name is ambiguous. If you mean Qoder, use `qodercli`; otherwise validate the local `qcoder` command like any PTY program. | [Qoder CLI quick start](https://docs.qoder.com/en/cli/quick-start) if this means Qoder; otherwise the specific vendor docs |
+| Trae IDE | Indirect unless using `trae-agent` | Use `trae-cli` for direct PTY control | `chat2ide` is not remote desktop and does not control IDE plugin state. | [trae-agent README](https://github.com/bytedance/trae-agent/blob/main/README.md) |
 
 Common configurations:
 
@@ -328,6 +327,18 @@ When a terminal is created, the server stores a `starting` session first. The PT
 - Restarting the service clears login sessions, PTY processes, and ring buffers.
 - The ring buffer stores recent output only. It is not a full log.
 - `TERMINAL_MAX_SESSIONS`, `TERMINAL_MAX_INPUT_BYTES`, and `APP_WS_MAX_MESSAGE_BYTES` are misuse guardrails, not a sandbox.
+
+## Roadmap
+
+These are planned improvements, not current guarantees:
+
+- Provider presets for Codex, Qoder, Claude Code, Gemini CLI, Cursor Agent, and other common terminal agents.
+- A Qoder smoke-test guide or script that checks install, login, startup, and terminal output.
+- Wrapper templates such as `scripts/run-qoder.sh` and `scripts/run-claude.sh` for parameterized agent startup.
+- Optional notifications for completed tasks, crashed terminals, and unread background output.
+- Optional persistence for terminal metadata or task summaries while keeping the default runtime lightweight.
+- More mobile polish around tab switching, command history, quick commands, and keyboard behavior.
+- More security guardrails such as read-only mode, workspace allowlists, and clearer deployment checks.
 
 ## Documentation
 
