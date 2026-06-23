@@ -3,6 +3,8 @@ import {
   AuthStatusResponse,
   CreateTerminalRequest,
   LoginRequestBody,
+  TerminalProfileListResponse,
+  TerminalProfileSummary,
   TerminalSummary,
   UpdateTerminalRequest,
 } from '@shared/protocol';
@@ -40,6 +42,11 @@ export async function logout(): Promise<void> {
 
 export async function listTerminals(): Promise<TerminalSummary[]> {
   const response = await requestJson<TerminalListResponse>('/api/terminals');
+  return response.items;
+}
+
+export async function listProfiles(): Promise<TerminalProfileSummary[]> {
+  const response = await requestJson<TerminalProfileListResponse>('/api/profiles');
   return response.items;
 }
 

@@ -41,7 +41,12 @@ export function ComposerBar({
   onSend,
   onStop,
 }: ComposerBarProps) {
-  const inputReady = Boolean(activeTerminal) && !busy && connected;
+  const inputReady =
+    Boolean(activeTerminal) &&
+    activeTerminal?.status === 'running' &&
+    !busy &&
+    connected;
+  const bridgeSession = activeTerminal?.backend === 'client_bridge';
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -68,7 +73,7 @@ export function ComposerBar({
   return (
     <div className="border-t border-white/10 bg-panelAlt/95 px-2 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur sm:px-3 sm:pt-2 sm:pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
       <form
-        className="grid grid-cols-[minmax(0,1fr)_repeat(4,2.5rem)] gap-1.5 md:grid-cols-[minmax(0,1fr)_8rem_repeat(4,6.5rem)] md:items-stretch md:gap-2"
+        className="grid grid-cols-[minmax(0,1fr)_repeat(4,2.75rem)] gap-1.5 md:grid-cols-[minmax(0,1fr)_8rem_repeat(4,6.5rem)] md:items-stretch md:gap-2"
         onSubmit={handleSubmit}
       >
         <textarea
@@ -79,10 +84,12 @@ export function ComposerBar({
           enterKeyHint="send"
           placeholder={
             !activeTerminal
-              ? '先新建一个 Codex 终端'
+              ? '先新建一个终端，或等待 Bridge 客户端发布会话'
               : !connected
               ? '连接正在恢复，当前输入暂不会发送'
-              : '输入命令或提示词，发送到当前 Codex CLI'
+              : activeTerminal.status !== 'running'
+              ? '当前会话未运行，先重启或等待客户端恢复'
+              : '输入命令或提示词，发送到当前会话'
           }
           spellCheck={false}
           value={value}
@@ -91,7 +98,7 @@ export function ComposerBar({
         />
 
         <button
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-accent px-3 text-sm font-semibold text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-50 md:min-h-12 md:rounded-lg md:px-4"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-3 text-sm font-semibold text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-50 md:min-h-12 md:rounded-lg md:px-4"
           disabled={!inputReady || !value.trim()}
           type="submit"
         >
@@ -105,19 +112,19 @@ export function ComposerBar({
           onClick={onInterrupt}
         />
         <ControlButton
-          label="停止"
+          label={bridgeSession ? '请求停止' : '停止'}
           disabled={!activeTerminal || busy}
           icon={Square}
           onClick={onStop}
         />
         <ControlButton
-          label="重启"
+          label={bridgeSession ? '请求重启' : '重启'}
           disabled={!activeTerminal || busy}
           icon={RotateCw}
           onClick={onRestart}
         />
         <ControlButton
-          label="关闭"
+          label={bridgeSession ? '关闭桥接' : '关闭'}
           disabled={!activeTerminal || busy}
           icon={X}
           tone="danger"
@@ -149,7 +156,7 @@ function ControlButton({
   return (
     <button
       aria-label={label}
-      className={`inline-flex min-h-10 items-center justify-center rounded-md border text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 md:min-h-12 md:rounded-lg md:gap-1.5 md:px-4 md:text-sm ${toneClass}`}
+      className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 md:min-h-12 md:rounded-lg md:gap-1.5 md:px-4 md:text-sm ${toneClass}`}
       disabled={disabled}
       title={label}
       type="button"

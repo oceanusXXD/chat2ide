@@ -14,6 +14,9 @@
 {
   "ok": true,
   "terminals": 2,
+  "ptyTerminals": 1,
+  "bridgeEnabled": true,
+  "bridgeSessions": 1,
   "publicOrigin": "https://terminal.example.com"
 }
 ```
@@ -79,10 +82,15 @@
 ```json
 {
   "items": [
-    {
-      "id": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
-      "name": "Codex 1",
-      "status": "running",
+	    {
+	      "id": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
+	      "backend": "pty",
+	      "name": "Codex 1",
+	      "profileId": "codex",
+	      "profileName": "Codex CLI",
+	      "commandDisplay": "codex",
+	      "bridgeClientId": null,
+	      "status": "running",
       "createdAt": "2026-04-02T10:00:00.000Z",
       "updatedAt": "2026-04-02T10:01:00.000Z",
       "cwd": "/srv/app",
@@ -97,6 +105,27 @@
 }
 ```
 
+`backend` 为 `pty` 时表示服务器本地 `node-pty` 进程；为 `client_bridge` 时表示 IDE/plugin/desktop companion 通过 `/bridge` 发布的外部会话。Bridge 会话的 `profileId` 形如 `bridge:<clientId>`，`pid` 始终为 `null`，`bridgeClientId` 为拥有该会话的客户端。
+
+### `GET /api/profiles`
+
+需要登录。返回前端可用于新建终端的启动配置。
+
+```json
+{
+  "items": [
+    {
+      "id": "codex",
+      "name": "Codex CLI",
+      "description": "Default server-side coding CLI",
+      "commandDisplay": "codex",
+      "cwd": "/srv/app",
+      "isDefault": true
+    }
+  ]
+}
+```
+
 ### `POST /api/terminals`
 
 请求体可为空。服务端会用默认 cwd 和尺寸。
@@ -104,6 +133,7 @@
 ```json
 {
   "name": "Fix auth bug",
+  "profileId": "codex",
   "cwd": "/srv/app",
   "cols": 120,
   "rows": 32
@@ -115,9 +145,14 @@
 ```json
 {
   "item": {
-    "id": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
-    "name": "Fix auth bug",
-    "status": "starting",
+	    "id": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
+	    "backend": "pty",
+	    "name": "Fix auth bug",
+	    "profileId": "codex",
+	    "profileName": "Codex CLI",
+	    "commandDisplay": "codex",
+	    "bridgeClientId": null,
+	    "status": "starting",
     "createdAt": "2026-04-02T10:00:00.000Z",
     "updatedAt": "2026-04-02T10:00:00.000Z",
     "cwd": "/srv/app",
@@ -154,9 +189,14 @@
 ```json
 {
   "item": {
-    "id": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
-    "name": "Run tests",
-    "status": "running",
+	    "id": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
+	    "backend": "pty",
+	    "name": "Run tests",
+	    "profileId": "codex",
+	    "profileName": "Codex CLI",
+	    "commandDisplay": "codex",
+	    "bridgeClientId": null,
+	    "status": "running",
     "createdAt": "2026-04-02T10:00:00.000Z",
     "updatedAt": "2026-04-02T10:05:00.000Z",
     "cwd": "/srv/app",
@@ -278,10 +318,15 @@
 ```json
 {
   "type": "terminal_created",
-  "item": {
-    "id": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
-    "name": "Codex 1",
-    "status": "starting",
+	  "item": {
+	    "id": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145",
+	    "backend": "pty",
+	    "name": "Codex 1",
+	    "profileId": "codex",
+	    "profileName": "Codex CLI",
+	    "commandDisplay": "codex",
+	    "bridgeClientId": null,
+	    "status": "starting",
     "createdAt": "2026-04-02T10:00:00.000Z",
     "updatedAt": "2026-04-02T10:00:00.000Z",
     "cwd": "/srv/app",
@@ -358,6 +403,162 @@ Replay 输出会带：
 {
   "type": "terminal_closed",
   "terminalId": "7df5a6b4-6ce7-47f1-8d62-8ec2a3f1b145"
+}
+```
+
+## Client Bridge WebSocket
+
+路径：`/bridge`
+
+要求：
+
+- 仅当配置 `APP_BRIDGE_TOKEN` 或 `APP_BRIDGE_CLIENTS` 时开启。
+- 请求必须携带 `Authorization: Bearer <token>`；服务端要求 token 至少 32 字节。
+- 如果 token 来自 `APP_BRIDGE_CLIENTS`，服务端会把连接绑定到对应 client id，并拒绝 `hello.clientId` 冒用其他客户端。
+- 如果设置了 `APP_PUBLIC_ORIGIN` 且请求带 `Origin`，`Origin` 必须完全匹配。
+- 单条消息不能超过 `APP_WS_MAX_MESSAGE_BYTES`。
+- 推送缓冲不能超过 `APP_WS_MAX_BUFFERED_BYTES`，否则服务端会关闭慢连接。
+- 第一条非 `ping` 消息必须是 `hello`。
+- 新会话受 `APP_BRIDGE_MAX_SESSIONS` 限制，已停止会话会按 `APP_BRIDGE_STOPPED_SESSION_TTL_MINUTES` 清理。
+- 服务端会发送 WebSocket ping；客户端应响应 pong，长时间无响应会被断开。
+
+### Bridge Client -> Server
+
+#### `hello`
+
+```json
+{
+  "type": "hello",
+  "clientId": "cursor-plugin",
+  "name": "Cursor Plugin",
+  "description": "Local IDE companion",
+  "protocolVersion": 1,
+  "capabilities": ["input", "resize", "control", "heartbeat", "replay"]
+}
+```
+
+`clientId` 可省略；服务端会根据客户端名称生成稳定格式的 id。如果使用 scoped token，服务端会使用配置中的 id。当前协议版本为 `1`；`capabilities` 是可选扩展字段，当前服务端会保留解析结果但不会强制协商。
+
+#### `session_upsert`
+
+创建或更新外部会话。该会话会作为普通 `TerminalSummary` 广播到浏览器 `/ws`。
+
+```json
+{
+  "type": "session_upsert",
+  "externalId": "workspace-main",
+  "name": "Cursor workspace",
+  "status": "running",
+  "cwd": "/srv/app",
+  "commandDisplay": "Cursor Agent",
+  "cols": 120,
+  "rows": 32,
+  "description": "IDE-owned agent session",
+  "capabilities": ["input", "resize", "control"]
+}
+```
+
+#### `session_output`
+
+```json
+{
+  "type": "session_output",
+  "externalId": "workspace-main",
+  "data": "agent output\r\n"
+}
+```
+
+#### `session_status`
+
+```json
+{
+  "type": "session_status",
+  "externalId": "workspace-main",
+  "status": "stopped",
+  "lastError": null,
+  "lastExitCode": 0,
+  "lastExitSignal": null
+}
+```
+
+#### `session_closed`
+
+```json
+{
+  "type": "session_closed",
+  "externalId": "workspace-main"
+}
+```
+
+#### `ping`
+
+```json
+{
+  "type": "ping"
+}
+```
+
+### Bridge Server -> Client
+
+#### `ready`
+
+```json
+{
+  "type": "ready",
+  "clientId": "cursor-plugin"
+}
+```
+
+#### `input`
+
+手机端或浏览器发送到该 terminal 的输入会被转发给拥有它的 bridge client。
+
+```json
+{
+  "type": "input",
+  "externalId": "workspace-main",
+  "data": "run tests\r"
+}
+```
+
+#### `resize`
+
+```json
+{
+  "type": "resize",
+  "externalId": "workspace-main",
+  "cols": 100,
+  "rows": 30
+}
+```
+
+#### `control`
+
+```json
+{
+  "type": "control",
+  "externalId": "workspace-main",
+  "action": "restart"
+}
+```
+
+`action` 可为 `stop`、`restart` 或 `close`。
+
+#### `error`
+
+```json
+{
+  "type": "error",
+  "externalId": "workspace-main",
+  "message": "Client bridge session workspace-main 不存在"
+}
+```
+
+#### `pong`
+
+```json
+{
+  "type": "pong"
 }
 ```
 

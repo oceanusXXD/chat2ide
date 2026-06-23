@@ -10,6 +10,7 @@
 - 已配置 PIN。
 - 已配置可执行的 `CODEX_COMMAND`。
 - 已配置存在且有权限的 `CODEX_CWD`。
+- 如果验收 direct client bridge，已配置 `APP_BRIDGE_TOKEN`。
 
 ## 1. 登录验收
 
@@ -129,3 +130,33 @@
 - 标签页可横向滚动。
 - 终端区域仍保留主要可视空间。
 - 控制按钮文字不溢出。
+
+## 9. Direct Client Bridge
+
+1. 以 `APP_BRIDGE_TOKEN=bridge-token-32-bytes-minimum-dev-123456` 启动服务。
+2. 登录 Web UI。
+3. 在另一个终端运行：
+
+```bash
+APP_BRIDGE_TOKEN=bridge-token-32-bytes-minimum-dev-123456 node scripts/bridge-smoke-client.mjs
+```
+
+4. 也可以运行一键端到端 smoke：
+
+```bash
+npm run build
+npm run smoke:e2e
+```
+
+5. 确认终端列表自动出现 `Direct client smoke session`，后端标识为 `Bridge`。
+6. 选中该终端，确认能看到 `bridge smoke client ready`。
+7. 用底部输入栏发送 `hello bridge`。
+8. 确认 smoke client 把输入回显为 `echo:hello bridge`。
+9. 点击“重启”，确认终端清屏后出现 `bridge smoke client restarted`。
+10. 点击“关闭”，确认 bridge 标签移除，smoke client 退出。
+
+通过标准：
+
+- `/bridge` 未配置 token 时不可用；配置 token 后要求 Bearer token。
+- Bridge 会话不需要创建 PTY profile，会自动进入同一终端列表。
+- 手机端输入、resize、重启和关闭都能转发到拥有该 session 的客户端。

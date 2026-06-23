@@ -1,5 +1,3 @@
-import { Plus } from 'lucide-react';
-
 import { TerminalSummary } from '@shared/protocol';
 import { formatCompactCount } from '@shared/terminalState';
 
@@ -7,7 +5,6 @@ interface TerminalTabsProps {
   terminals: TerminalSummary[];
   activeTerminalId: string | null;
   unreadById: Record<string, number>;
-  onCreate(): void;
   onSelect(terminalId: string): void;
 }
 
@@ -15,16 +12,23 @@ export function TerminalTabs({
   terminals,
   activeTerminalId,
   unreadById,
-  onCreate,
   onSelect,
 }: TerminalTabsProps) {
+  if (terminals.length === 0) {
+    return null;
+  }
+
   return (
     <div className="shrink-0 border-b border-white/10 bg-panelAlt/80 px-2 py-1.5 sm:px-3 sm:py-2">
-      <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] sm:gap-2 sm:pb-1">
+      <div
+        className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] sm:gap-2 sm:pb-1"
+        role="tablist"
+      >
         {terminals.map((terminal) => {
           const active = terminal.id === activeTerminalId;
           return (
             <button
+              aria-label={`${terminal.name}，${formatTerminalBackend(terminal.backend)}，${terminal.profileName}，${formatTerminalStatus(terminal.status)}`}
               aria-selected={active}
               key={terminal.id}
               className={`flex min-h-10 min-w-[7rem] max-w-[9rem] shrink-0 items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition sm:min-h-12 sm:min-w-[10rem] sm:max-w-[10.5rem] sm:gap-3 sm:rounded-lg sm:px-4 sm:py-2 ${
@@ -32,6 +36,8 @@ export function TerminalTabs({
                   ? 'border-accent bg-accent/15 text-white'
                   : 'border-white/10 bg-white/5 text-slate-300'
               }`}
+              role="tab"
+              title={`${terminal.name} · ${formatTerminalBackend(terminal.backend)} · ${terminal.profileName} · ${terminal.commandDisplay}`}
               type="button"
               onClick={() => onSelect(terminal.id)}
             >
@@ -51,7 +57,7 @@ export function TerminalTabs({
                   {terminal.name}
                 </span>
                 <span className="hidden truncate text-[11px] leading-4 text-slate-400 sm:block sm:text-xs">
-                  {formatTerminalStatus(terminal.status)}
+                  {formatTerminalBackend(terminal.backend)} · {formatTerminalStatus(terminal.status)}
                 </span>
               </span>
               {unreadById[terminal.id] ? (
@@ -63,15 +69,6 @@ export function TerminalTabs({
           );
         })}
 
-        <button
-          aria-label="新建终端"
-          className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center gap-1.5 rounded-md border border-dashed border-accent/60 bg-accent/10 px-2.5 py-1.5 text-sm font-semibold text-accent transition hover:bg-accent/20 sm:min-h-12 sm:min-w-11 sm:rounded-lg sm:px-4 sm:py-2"
-          type="button"
-          onClick={onCreate}
-        >
-          <Plus aria-hidden className="h-4 w-4" />
-          <span className="hidden sm:inline">新建</span>
-        </button>
       </div>
     </div>
   );
@@ -88,4 +85,8 @@ function formatTerminalStatus(status: TerminalSummary['status']): string {
     case 'error':
       return '错误';
   }
+}
+
+function formatTerminalBackend(backend: TerminalSummary['backend']): string {
+  return backend === 'client_bridge' ? 'Bridge' : 'PTY';
 }

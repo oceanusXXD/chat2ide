@@ -2,7 +2,12 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { CreateTerminalRequest, TerminalSummary } from '../../shared/protocol';
+import {
+  CreateTerminalRequest,
+  TerminalProfileSummary,
+  TerminalSummary,
+} from '../../shared/protocol';
+import { TerminalProfileConfig } from '../config';
 import { CodexPtyRunner } from './codexPtyRunner';
 import { RingBuffer } from './ringBuffer';
 
@@ -25,6 +30,7 @@ export type TerminalManagerEvent =
   | { type: 'terminal_error'; terminalId: string; message: string };
 
 export interface TerminalManagerOptions {
+  allowedCwdRoots: string[];
   defaultCwd: string;
   defaultCols: number;
   defaultRows: number;
@@ -33,6 +39,8 @@ export interface TerminalManagerOptions {
   maxInputBytes: number;
   codexCommand: string;
   codexArgs: string[];
+  defaultProfileId: string;
+  profiles: TerminalProfileConfig[];
 }
 
 export class TerminalSessionManager {
@@ -55,8 +63,23 @@ export class TerminalSessionManager {
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
 
+  listProfiles(): TerminalProfileSummary[] {
+    return this.options.profiles.map((profile) => ({
+      id: profile.id,
+      name: profile.name,
+      description: profile.description ?? null,
+      commandDisplay: formatCommandDisplay(profile.command, profile.args),
+      cwd: profile.cwd,
+      isDefault: profile.isDefault,
+    }));
+  }
+
   count(): number {
     return this.sessions.size;
+  }
+
+  hasSession(id: string): boolean {
+    return this.sessions.has(id);
   }
 
   createSession(request: CreateTerminalRequest = {}): TerminalSummary {
@@ -66,13 +89,20 @@ export class TerminalSessionManager {
 
     const id = crypto.randomUUID();
     const nowIso = new Date().toISOString();
+    const profile = this.resolveProfile(request.profileId);
     const cols = normalizeCols(request.cols, this.options.defaultCols);
     const rows = normalizeRows(request.rows, this.options.defaultRows);
-    const cwd = normalizeCwd(request.cwd, this.options.defaultCwd);
+    const cwd = normalizeCwd(request.cwd, profile.cwd, this.options.allowedCwdRoots);
+    const commandDisplay = formatCommandDisplay(profile.command, profile.args);
     const session: TerminalSessionRecord = {
       summary: {
         id,
-        name: request.name?.trim() || `Codex ${this.nextOrdinal++}`,
+        backend: 'pty',
+        name: request.name?.trim() || `${profile.name} ${this.nextOrdinal++}`,
+        profileId: profile.id,
+        profileName: profile.name,
+        commandDisplay,
+        bridgeClientId: null,
         status: 'starting',
         createdAt: nowIso,
         updatedAt: nowIso,
@@ -85,8 +115,8 @@ export class TerminalSessionManager {
         lastExitSignal: null,
       },
       runner: new CodexPtyRunner({
-        command: this.options.codexCommand,
-        args: this.options.codexArgs,
+        command: profile.command,
+        args: profile.args,
         cwd,
         cols,
         rows,
@@ -294,6 +324,15 @@ export class TerminalSessionManager {
     return session;
   }
 
+  private resolveProfile(profileId: string | undefined): TerminalProfileConfig {
+    const requestedId = profileId?.trim() || this.options.defaultProfileId;
+    const profile = this.options.profiles.find((item) => item.id === requestedId);
+    if (!profile) {
+      throw new Error(`终端配置不存在: ${requestedId}`);
+    }
+    return profile;
+  }
+
   private emit(event: TerminalManagerEvent): void {
     for (const listener of this.listeners) {
       listener(event);
@@ -315,16 +354,49 @@ function normalizeRows(value: number | undefined, fallback: number): number {
   return clampInt(value as number, 8, 120);
 }
 
-function normalizeCwd(value: string | undefined, fallback: string): string {
+function normalizeCwd(
+  value: string | undefined,
+  fallback: string,
+  allowedRoots: string[],
+): string {
   const next = value?.trim() || fallback;
   const resolved = path.resolve(next);
   const stats = fs.statSync(resolved, { throwIfNoEntry: false });
   if (!stats || !stats.isDirectory()) {
     throw new Error(`终端工作目录不存在: ${resolved}`);
   }
+  if (
+    allowedRoots.length > 0 &&
+    !allowedRoots.some((root) => isPathWithin(resolved, root))
+  ) {
+    throw new Error(`终端工作目录不在允许范围内: ${resolved}`);
+  }
   return resolved;
 }
 
 function clampInt(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.floor(value)));
+}
+
+function formatCommandDisplay(command: string, args: readonly string[]): string {
+  return [command, ...args].map(formatCommandPart).join(' ');
+}
+
+function formatCommandPart(value: string): string {
+  if (!value || /\s/.test(value)) {
+    return JSON.stringify(value);
+  }
+  return value;
+}
+
+function isPathWithin(candidate: string, root: string): boolean {
+  const normalizedCandidate = path.resolve(candidate);
+  const normalizedRoot = path.resolve(root);
+  if (normalizedCandidate === normalizedRoot) {
+    return true;
+  }
+  const prefix = normalizedRoot.endsWith(path.sep)
+    ? normalizedRoot
+    : `${normalizedRoot}${path.sep}`;
+  return normalizedCandidate.startsWith(prefix);
 }

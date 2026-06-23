@@ -8,6 +8,23 @@ export interface PinSource {
 
 export type CookieSecureMode = 'auto' | 'always' | 'never';
 
+export interface TerminalProfileConfig {
+  id: string;
+  name: string;
+  description?: string;
+  command: string;
+  args: string[];
+  cwd: string;
+  isDefault: boolean;
+}
+
+export interface BridgeClientConfig {
+  id: string;
+  name?: string;
+  description?: string;
+  token: string;
+}
+
 export interface AppConfig {
   host: string;
   port: number;
@@ -31,8 +48,19 @@ export interface AppConfig {
     maxInputBytes: number;
     codexCommand: string;
     codexArgs: string[];
+    defaultProfileId: string;
+    allowedCwdRoots: string[];
+    profiles: TerminalProfileConfig[];
+  };
+  bridge: {
+    clients: BridgeClientConfig[];
+    enabled: boolean;
+    maxSessions: number;
+    stoppedSessionTtlMs: number;
+    token?: string;
   };
   ws: {
+    maxBufferedBytes: number;
     maxPayloadBytes: number;
   };
 }
@@ -55,11 +83,27 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     plainPin: emptyToUndefined(firstDefined(runtimeEnv, 'APP_PIN')),
     pinHash: emptyToUndefined(firstDefined(runtimeEnv, 'APP_PIN_HASH')),
   };
+  const bridgeToken = emptyToUndefined(
+    firstDefined(
+      runtimeEnv,
+      'APP_BRIDGE_TOKEN',
+      'CHAT2IDE_BRIDGE_TOKEN',
+      'BRIDGE_TOKEN',
+    ),
+  );
+  const profiles = buildTerminalProfiles(runtimeEnv, defaultCwd);
+  const bridgeClients = parseBridgeClients(
+    firstDefined(runtimeEnv, 'APP_BRIDGE_CLIENTS', 'CHAT2IDE_BRIDGE_CLIENTS'),
+  );
 
   if (!pinSource.plainPin && !pinSource.pinHash) {
     throw new Error('必须设置 APP_PIN 或 APP_PIN_HASH');
   }
   validatePinHash(pinSource.pinHash);
+  validateBridgeToken(bridgeToken);
+  for (const client of bridgeClients) {
+    validateBridgeToken(client.token, `APP_BRIDGE_CLIENTS client ${client.id} token`);
+  }
 
   return {
     host: firstDefined(runtimeEnv, 'APP_HOST', 'HOST') || '127.0.0.1',
@@ -151,8 +195,38 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       codexArgs: parseArgs(
         firstDefined(runtimeEnv, 'CODEX_ARGS', 'CODEX_ARGS_JSON'),
       ),
+      defaultProfileId: 'codex',
+      allowedCwdRoots: readAllowedCwdRoots(runtimeEnv, profiles),
+      profiles,
+    },
+    bridge: {
+      clients: bridgeClients,
+      enabled: Boolean(bridgeToken) || bridgeClients.length > 0,
+      maxSessions: readPositiveInt(
+        firstDefined(runtimeEnv, 'APP_BRIDGE_MAX_SESSIONS', 'BRIDGE_MAX_SESSIONS'),
+        8,
+        'APP_BRIDGE_MAX_SESSIONS',
+      ),
+      stoppedSessionTtlMs:
+        readPositiveInt(
+          firstDefined(
+            runtimeEnv,
+            'APP_BRIDGE_STOPPED_SESSION_TTL_MINUTES',
+            'BRIDGE_STOPPED_SESSION_TTL_MINUTES',
+          ),
+          60,
+          'APP_BRIDGE_STOPPED_SESSION_TTL_MINUTES',
+        ) *
+        60 *
+        1000,
+      token: bridgeToken,
     },
     ws: {
+      maxBufferedBytes: readPositiveInt(
+        firstDefined(runtimeEnv, 'APP_WS_MAX_BUFFERED_BYTES'),
+        1024 * 1024,
+        'APP_WS_MAX_BUFFERED_BYTES',
+      ),
       maxPayloadBytes: readPositiveInt(
         firstDefined(runtimeEnv, 'APP_WS_MAX_MESSAGE_BYTES'),
         128 * 1024,
@@ -160,6 +234,222 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       ),
     },
   };
+}
+
+function buildTerminalProfiles(
+  env: NodeJS.ProcessEnv,
+  defaultCwd: string,
+): TerminalProfileConfig[] {
+  const defaultCommand = firstDefined(env, 'CODEX_COMMAND') || 'codex';
+  const defaultArgs = parseArgs(firstDefined(env, 'CODEX_ARGS', 'CODEX_ARGS_JSON'));
+  const defaultProfile: TerminalProfileConfig = {
+    id: 'codex',
+    name: firstDefined(env, 'TERMINAL_DEFAULT_PROFILE_NAME') || 'Codex CLI',
+    description:
+      firstDefined(env, 'TERMINAL_DEFAULT_PROFILE_DESCRIPTION') ||
+      'Default server-side coding CLI',
+    command: defaultCommand,
+    args: defaultArgs,
+    cwd: defaultCwd,
+    isDefault: true,
+  };
+  const customProfiles = parseTerminalProfiles(
+    firstDefined(env, 'TERMINAL_PROFILES', 'CHAT2IDE_TERMINAL_PROFILES'),
+    defaultCwd,
+  );
+
+  const profiles = [defaultProfile, ...customProfiles];
+  const seen = new Set<string>();
+  for (const profile of profiles) {
+    if (seen.has(profile.id)) {
+      throw new Error(`TERMINAL_PROFILES 包含重复 profile id: ${profile.id}`);
+    }
+    seen.add(profile.id);
+  }
+  return profiles;
+}
+
+function parseTerminalProfiles(
+  value: string | undefined,
+  defaultCwd: string,
+): TerminalProfileConfig[] {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch (error) {
+    throw new Error(
+      `TERMINAL_PROFILES 必须是 JSON 数组: ${
+        error instanceof Error ? error.message : 'parse failed'
+      }`,
+    );
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('TERMINAL_PROFILES 必须是 JSON 数组');
+  }
+
+  return parsed.map((item, index) =>
+    normalizeTerminalProfile(item, index, defaultCwd),
+  );
+}
+
+function normalizeTerminalProfile(
+  item: unknown,
+  index: number,
+  defaultCwd: string,
+): TerminalProfileConfig {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    throw new Error(`TERMINAL_PROFILES[${index}] 必须是对象`);
+  }
+
+  const record = item as Record<string, unknown>;
+  const id = readProfileString(record.id, `TERMINAL_PROFILES[${index}].id`);
+  if (!/^[a-z0-9][a-z0-9_.-]{0,47}$/i.test(id)) {
+    throw new Error(
+      `TERMINAL_PROFILES[${index}].id 只能包含字母、数字、点、下划线和连字符`,
+    );
+  }
+
+  const name =
+    readOptionalProfileString(record.name) ||
+    readOptionalProfileString(record.label) ||
+    id;
+  const command = readProfileString(
+    record.command,
+    `TERMINAL_PROFILES[${index}].command`,
+  );
+  const args = normalizeProfileArgs(record.args, index);
+  const cwd = normalizeProfileCwd(record.cwd, defaultCwd, index);
+  const description = readOptionalProfileString(record.description);
+
+  return {
+    id,
+    name,
+    description,
+    command,
+    args,
+    cwd,
+    isDefault: false,
+  };
+}
+
+function normalizeProfileArgs(value: unknown, index: number): string[] {
+  if (value === undefined || value === null) {
+    return [];
+  }
+  if (typeof value === 'string') {
+    return parseArgs(value);
+  }
+  if (Array.isArray(value) && value.every((item) => typeof item === 'string')) {
+    return value;
+  }
+  throw new Error(`TERMINAL_PROFILES[${index}].args 必须是字符串或字符串数组`);
+}
+
+function normalizeProfileCwd(
+  value: unknown,
+  fallback: string,
+  index: number,
+): string {
+  const raw = typeof value === 'string' && value.trim() ? value.trim() : fallback;
+  const resolved = path.resolve(raw);
+  const stats = fs.statSync(resolved, { throwIfNoEntry: false });
+  if (!stats || !stats.isDirectory()) {
+    throw new Error(`TERMINAL_PROFILES[${index}].cwd 不存在: ${resolved}`);
+  }
+  return resolved;
+}
+
+function readAllowedCwdRoots(
+  env: NodeJS.ProcessEnv,
+  profiles: TerminalProfileConfig[],
+): string[] {
+  const configured = firstDefined(
+    env,
+    'TERMINAL_ALLOWED_CWD_ROOTS',
+    'APP_TERMINAL_ALLOWED_CWD_ROOTS',
+  );
+  const rawRoots = configured
+    ? configured.split(path.delimiter).filter((item) => item.trim())
+    : profiles.map((profile) => profile.cwd);
+  const roots = rawRoots.map((root, index) => {
+    const resolved = path.resolve(root.trim());
+    const stats = fs.statSync(resolved, { throwIfNoEntry: false });
+    if (!stats || !stats.isDirectory()) {
+      throw new Error(`TERMINAL_ALLOWED_CWD_ROOTS[${index}] 不存在: ${resolved}`);
+    }
+    return resolved;
+  });
+  return [...new Set(roots)];
+}
+
+function parseBridgeClients(value: string | undefined): BridgeClientConfig[] {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch (error) {
+    throw new Error(
+      `APP_BRIDGE_CLIENTS 必须是 JSON 数组: ${
+        error instanceof Error ? error.message : 'parse failed'
+      }`,
+    );
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('APP_BRIDGE_CLIENTS 必须是 JSON 数组');
+  }
+
+  const clients = parsed.map((item, index) => normalizeBridgeClient(item, index));
+  const seen = new Set<string>();
+  for (const client of clients) {
+    if (seen.has(client.id)) {
+      throw new Error(`APP_BRIDGE_CLIENTS 包含重复 client id: ${client.id}`);
+    }
+    seen.add(client.id);
+  }
+  return clients;
+}
+
+function normalizeBridgeClient(item: unknown, index: number): BridgeClientConfig {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    throw new Error(`APP_BRIDGE_CLIENTS[${index}] 必须是对象`);
+  }
+
+  const record = item as Record<string, unknown>;
+  const id = readProfileString(record.id, `APP_BRIDGE_CLIENTS[${index}].id`);
+  if (!/^[a-z0-9][a-z0-9_.-]{0,47}$/i.test(id)) {
+    throw new Error(
+      `APP_BRIDGE_CLIENTS[${index}].id 只能包含字母、数字、点、下划线和连字符`,
+    );
+  }
+
+  return {
+    id: id.toLowerCase(),
+    name: readOptionalProfileString(record.name),
+    description: readOptionalProfileString(record.description),
+    token: readProfileString(record.token, `APP_BRIDGE_CLIENTS[${index}].token`),
+  };
+}
+
+function readProfileString(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${field} 不能为空`);
+  }
+  return value.trim();
+}
+
+function readOptionalProfileString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 function mergeRuntimeEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -364,6 +654,18 @@ function readBufferBytes(env: NodeJS.ProcessEnv): number {
     return readPositiveInt(kilobytes, 512, 'TERMINAL_BUFFER_KB') * 1024;
   }
   return 256 * 1024;
+}
+
+function validateBridgeToken(
+  value: string | undefined,
+  label = 'APP_BRIDGE_TOKEN',
+): void {
+  if (!value) {
+    return;
+  }
+  if (Buffer.byteLength(value, 'utf8') < 32) {
+    throw new Error(`${label} 必须至少 32 字节`);
+  }
 }
 
 function validatePinHash(value: string | undefined): void {

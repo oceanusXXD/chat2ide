@@ -14,7 +14,10 @@ import {
 import { loadConfig } from './config';
 import { PinAuthError, PinAuthService } from './auth/pinAuth';
 import { SessionManager } from './auth/sessionManager';
+import { ClientBridgeSessionManager } from './bridge/clientBridgeSessionManager';
+import { TerminalSessionRouter } from './terminal/terminalSessionRouter';
 import { TerminalSessionManager } from './terminal/terminalSessionManager';
+import { ClientBridgeSocketHub } from './ws/clientBridgeSocketHub';
 import { TerminalSocketHub } from './ws/terminalSocketHub';
 
 const config = loadConfig();
@@ -29,6 +32,15 @@ const auth = new PinAuthService(
   sessions,
 );
 const terminals = new TerminalSessionManager(config.terminal);
+const bridgeSessions = new ClientBridgeSessionManager({
+  bufferBytes: config.terminal.bufferBytes,
+  defaultCols: config.terminal.defaultCols,
+  defaultRows: config.terminal.defaultRows,
+  maxSessions: config.bridge.maxSessions,
+  maxInputBytes: config.terminal.maxInputBytes,
+  stoppedSessionTtlMs: config.bridge.stoppedSessionTtlMs,
+});
+const terminalRouter = new TerminalSessionRouter(terminals, bridgeSessions);
 
 const app = express();
 app.disable('x-powered-by');
@@ -44,7 +56,10 @@ app.use('/api', (_request, response, next) => {
 app.get('/api/health', (_request, response) => {
   response.json({
     ok: true,
-    terminals: terminals.count(),
+    terminals: terminalRouter.count(),
+    ptyTerminals: terminals.count(),
+    bridgeEnabled: config.bridge.enabled,
+    bridgeSessions: bridgeSessions.count(),
     publicOrigin: config.publicOrigin ?? null,
   });
 });
@@ -111,7 +126,13 @@ app.post('/api/auth/logout', (request, response) => {
 
 app.get('/api/terminals', requireAuth, (_request, response) => {
   response.json({
-    items: terminals.listSessions(),
+    items: terminalRouter.listSessions(),
+  });
+});
+
+app.get('/api/profiles', requireAuth, (_request, response) => {
+  response.json({
+    items: terminals.listProfiles(),
   });
 });
 
@@ -139,16 +160,20 @@ app.patch('/api/terminals/:id', requireAuth, (request, response) => {
     }
 
     response.json({
-      item: terminals.rename(getRouteParam(request.params.id), nextName),
+      item: terminalRouter.rename(getRouteParam(request.params.id), nextName),
     });
   } catch (error) {
-    sendApiError(response, 404, error);
+    sendApiError(
+      response,
+      error instanceof Error && error.message.includes('Client bridge') ? 400 : 404,
+      error,
+    );
   }
 });
 
 app.post('/api/terminals/:id/stop', requireAuth, (request, response) => {
   try {
-    terminals.stop(getRouteParam(request.params.id));
+    terminalRouter.stop(getRouteParam(request.params.id));
     response.json({
       ok: true,
     });
@@ -159,7 +184,7 @@ app.post('/api/terminals/:id/stop', requireAuth, (request, response) => {
 
 app.post('/api/terminals/:id/restart', requireAuth, (request, response) => {
   try {
-    terminals.restart(getRouteParam(request.params.id));
+    terminalRouter.restart(getRouteParam(request.params.id));
     response.json({
       ok: true,
     });
@@ -170,7 +195,7 @@ app.post('/api/terminals/:id/restart', requireAuth, (request, response) => {
 
 app.delete('/api/terminals/:id', requireAuth, (request, response) => {
   try {
-    terminals.close(getRouteParam(request.params.id));
+    terminalRouter.close(getRouteParam(request.params.id));
     response.status(204).end();
   } catch (error) {
     sendApiError(response, 404, error);
@@ -208,16 +233,39 @@ app.use((error: unknown, _request: Request, response: Response, _next: NextFunct
 });
 
 const server = http.createServer(app);
-const socketHub = new TerminalSocketHub(server, sessions, terminals, {
+const socketHub = new TerminalSocketHub(sessions, terminalRouter, {
   cookieName: config.auth.cookieName,
+  maxBufferedBytes: config.ws.maxBufferedBytes,
   maxPayloadBytes: config.ws.maxPayloadBytes,
   publicOrigin: config.publicOrigin,
+});
+const bridgeSocketHub =
+  config.bridge.enabled && (config.bridge.token || config.bridge.clients.length > 0)
+    ? new ClientBridgeSocketHub(bridgeSessions, {
+        clients: config.bridge.clients,
+        heartbeatIntervalMs: 20_000,
+        maxBufferedBytes: config.ws.maxBufferedBytes,
+        maxPayloadBytes: config.ws.maxPayloadBytes,
+        publicOrigin: config.publicOrigin,
+        token: config.bridge.token,
+      })
+    : null;
+
+server.on('upgrade', (request, socket, head) => {
+  if (socketHub.handleUpgrade(request, socket, head)) {
+    return;
+  }
+  if (bridgeSocketHub?.handleUpgrade(request, socket, head)) {
+    return;
+  }
+  socket.destroy();
 });
 
 const maintenanceTimer = setInterval(() => {
   const now = new Date();
   sessions.pruneExpired(now);
   auth.pruneStaleAttempts(now);
+  bridgeSessions.pruneStopped(now);
 }, 60_000);
 maintenanceTimer.unref();
 
@@ -229,13 +277,31 @@ server.listen(config.port, config.host, () => {
   console.log(
     `Codex command: ${config.terminal.codexCommand} ${config.terminal.codexArgs.join(' ')}`.trim(),
   );
+  console.log(
+    `Terminal profiles: ${config.terminal.profiles
+      .map((profile) => `${profile.isDefault ? '*' : ''}${profile.id}`)
+      .join(', ')}`,
+  );
   console.log(`Default cwd: ${config.terminal.defaultCwd}`);
+  console.log(
+    `Client bridge: ${config.bridge.enabled ? 'enabled at /bridge' : 'disabled'}`,
+  );
+  if (config.bridge.clients.length > 0) {
+    console.log(
+      `Bridge client scopes: ${config.bridge.clients
+        .map((client) => client.id)
+        .join(', ')}`,
+    );
+  }
+  console.log(`WS send buffer cap: ${config.ws.maxBufferedBytes} bytes`);
   console.log('Public exposure model: Cloudflare Tunnel -> local HTTP/WS app');
 });
 
 const shutdown = () => {
   clearInterval(maintenanceTimer);
+  bridgeSocketHub?.dispose();
   socketHub.dispose();
+  bridgeSessions.dispose();
   terminals.dispose();
   sessions.pruneExpired();
   server.close(() => {

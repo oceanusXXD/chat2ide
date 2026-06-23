@@ -1,4 +1,5 @@
 import {
+  type ChangeEvent,
   startTransition,
   useCallback,
   useEffect,
@@ -15,7 +16,11 @@ import {
   RotateCw,
 } from 'lucide-react';
 
-import { ServerWsMessage, TerminalSummary } from '@shared/protocol';
+import {
+  ServerWsMessage,
+  TerminalProfileSummary,
+  TerminalSummary,
+} from '@shared/protocol';
 import {
   addCommandToHistory,
   chooseAdjacentTerminalId,
@@ -30,6 +35,7 @@ import {
   closeTerminal,
   createTerminal,
   getAuthStatus,
+  listProfiles,
   listTerminals,
   loginWithPin,
   logout,
@@ -50,7 +56,9 @@ export default function App() {
   const [loginBusy, setLoginBusy] = useState(false);
   const [busyAction, setBusyAction] = useState(false);
   const [terminals, setTerminals] = useState<TerminalSummary[]>([]);
+  const [profiles, setProfiles] = useState<TerminalProfileSummary[]>([]);
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [composerValue, setComposerValue] = useState('');
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [commandHistoryCursor, setCommandHistoryCursor] = useState<number | null>(null);
@@ -74,6 +82,21 @@ export default function App() {
     });
   }, []);
 
+  const loadProfiles = useCallback(async () => {
+    const nextProfiles = await listProfiles();
+    setProfiles(nextProfiles);
+    setSelectedProfileId((current) => {
+      if (current && nextProfiles.some((profile) => profile.id === current)) {
+        return current;
+      }
+      return (
+        nextProfiles.find((profile) => profile.isDefault)?.id ??
+        nextProfiles[0]?.id ??
+        null
+      );
+    });
+  }, []);
+
   useEffect(() => {
     terminalsRef.current = terminals;
   }, [terminals]);
@@ -92,7 +115,7 @@ export default function App() {
         }
         setAuthenticated(status.authenticated);
         if (status.authenticated) {
-          await loadTerminals();
+          await Promise.all([loadTerminals(), loadProfiles()]);
         }
       } catch (error) {
         if (active) {
@@ -108,7 +131,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [loadTerminals]);
+  }, [loadProfiles, loadTerminals]);
 
   const handleSocketMessage = useCallback(
     (message: ServerWsMessage) => {
@@ -210,7 +233,9 @@ export default function App() {
     setAuthenticated(false);
     setAuthError('登录已失效，请重新输入 PIN');
     setTerminals([]);
+    setProfiles([]);
     setActiveTerminalId(null);
+    setSelectedProfileId(null);
     setComposerValue('');
     setCommandHistory([]);
     setCommandHistoryCursor(null);
@@ -232,6 +257,15 @@ export default function App() {
   const activeTerminal = useMemo(
     () => terminals.find((terminal) => terminal.id === activeTerminalId) ?? null,
     [activeTerminalId, terminals],
+  );
+
+  const selectedProfile = useMemo(
+    () =>
+      profiles.find((profile) => profile.id === selectedProfileId) ??
+      profiles.find((profile) => profile.isDefault) ??
+      profiles[0] ??
+      null,
+    [profiles, selectedProfileId],
   );
 
   const terminalStats = useMemo(
@@ -319,14 +353,14 @@ export default function App() {
         await loginWithPin(pin);
         setAuthenticated(true);
         setNotice(null);
-        await loadTerminals();
+        await Promise.all([loadTerminals(), loadProfiles()]);
       } catch (error) {
         setAuthError(error instanceof Error ? error.message : '登录失败');
       } finally {
         setLoginBusy(false);
       }
     },
-    [loadTerminals],
+    [loadProfiles, loadTerminals],
   );
 
   const handleLogout = useCallback(async () => {
@@ -335,7 +369,9 @@ export default function App() {
       await logout();
       setAuthenticated(false);
       setTerminals([]);
+      setProfiles([]);
       setActiveTerminalId(null);
+      setSelectedProfileId(null);
       setComposerValue('');
       setCommandHistory([]);
       setCommandHistoryCursor(null);
@@ -352,7 +388,9 @@ export default function App() {
   const handleCreateTerminal = useCallback(async () => {
     setBusyAction(true);
     try {
-      const created = await createTerminal();
+      const created = await createTerminal({
+        profileId: selectedProfile?.id,
+      });
       setActiveTerminalId(created.id);
       setTerminals((current) => upsertTerminal(current, created));
       setUnreadById((current) => ({ ...current, [created.id]: 0 }));
@@ -361,7 +399,7 @@ export default function App() {
     } finally {
       setBusyAction(false);
     }
-  }, []);
+  }, [selectedProfile]);
 
   const handleRenameTerminal = useCallback(async () => {
     if (!activeTerminal) {
@@ -398,6 +436,13 @@ export default function App() {
     controller?.fit();
     controller?.focus();
   }, []);
+
+  const handleSelectedProfileChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      setSelectedProfileId(event.target.value);
+    },
+    [],
+  );
 
   const handleRefreshActiveTerminal = useCallback(() => {
     if (!activeTerminalId) {
@@ -531,10 +576,10 @@ export default function App() {
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
               <p className="hidden text-[11px] leading-4 text-slate-400 sm:block sm:text-xs">
-                chat2ide · 单用户 AI 编程控制台
+                chat2ide · 私有远程控制台
               </p>
               <h1 className="truncate text-base font-semibold leading-tight text-white sm:text-2xl">
-                私有 Codex 远程终端
+                私有远程终端
               </h1>
             </div>
 
@@ -575,17 +620,19 @@ export default function App() {
 
           <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] sm:gap-2">
             <ToolbarButton
-              icon={Plus}
-              label="新建终端"
-              disabled={busyAction}
-              hideLabelOnMobile
-              onClick={handleCreateTerminal}
-            />
-            <ToolbarButton
               icon={Pencil}
               label="重命名"
-              disabled={!activeTerminal || busyAction}
+              disabled={
+                !activeTerminal ||
+                activeTerminal.backend === 'client_bridge' ||
+                busyAction
+              }
               hideLabelOnMobile
+              title={
+                activeTerminal?.backend === 'client_bridge'
+                  ? 'Bridge 会话名称由客户端管理'
+                  : undefined
+              }
               onClick={handleRenameTerminal}
             />
             <ToolbarButton
@@ -612,6 +659,15 @@ export default function App() {
             />
           </div>
 
+          <LaunchProfileBar
+            busy={busyAction}
+            profiles={profiles}
+            selectedProfile={selectedProfile}
+            selectedProfileId={selectedProfile?.id ?? ''}
+            onCreate={handleCreateTerminal}
+            onProfileChange={handleSelectedProfileChange}
+          />
+
           <MobileSessionLine
             activeTerminal={activeTerminal}
             stats={terminalStats}
@@ -626,7 +682,9 @@ export default function App() {
                 </span>
               ) : null}
               <span className="min-w-0 flex-1 truncate">
-                {activeTerminal?.cwd ?? '尚未选择终端'}
+                {activeTerminal
+                  ? `${activeTerminal.cwd} · ${activeTerminal.commandDisplay}`
+                  : '尚未选择终端'}
               </span>
               {activeTerminal?.pid ? (
                 <span className="shrink-0">PID {activeTerminal.pid}</span>
@@ -648,15 +706,24 @@ export default function App() {
         activeTerminalId={activeTerminalId}
         terminals={terminals}
         unreadById={unreadById}
-        onCreate={handleCreateTerminal}
         onSelect={handleSelectTerminal}
       />
 
       <section className="flex min-h-0 flex-1 flex-col px-2 py-1.5 sm:px-3 sm:py-2">
         <div className="flex min-h-0 flex-1 flex-col">
           {terminals.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-white/10 bg-[#0b131d] px-6 text-center text-sm leading-6 text-slate-400">
-              还没有活动终端。新建一个 Codex 会话后，浏览器连接并附着到该标签页时会启动服务器上的 PTY 进程。
+            <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-white/10 bg-[#0b131d] px-6 text-center">
+              <div className="space-y-1 text-sm leading-6 text-slate-400">
+                <p>
+                  尚未创建终端
+                  {selectedProfile
+                    ? ` · 当前 profile：${selectedProfile.name}`
+                    : ''}
+                </p>
+                <p className="text-[11px] leading-4 text-slate-500">
+                  PTY 会话从“新建终端”创建；Bridge 会话由已连接的客户端主动发布。
+                </p>
+              </div>
             </div>
           ) : (
             terminals.map((terminal) => (
@@ -728,12 +795,14 @@ function ToolbarButton({
   icon: Icon,
   label,
   onClick,
+  title,
   tone = 'default',
 }: {
   disabled?: boolean;
   hideLabelOnMobile?: boolean;
   icon: LucideIcon;
   label: string;
+  title?: string;
   onClick(): void;
   tone?: 'default' | 'danger';
 }) {
@@ -745,15 +814,102 @@ function ToolbarButton({
   return (
     <button
       aria-label={label}
-      className={`inline-flex min-h-9 min-w-9 shrink-0 items-center justify-center gap-1.5 rounded-md border px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:rounded-lg sm:px-4 sm:text-sm ${toneClass}`}
+      className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-md border px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:min-w-10 sm:rounded-lg sm:px-4 sm:text-sm ${toneClass}`}
       disabled={disabled}
-      title={label}
+      title={title ?? label}
       type="button"
       onClick={onClick}
     >
       <Icon aria-hidden className="h-4 w-4" />
       <span className={hideLabelOnMobile ? 'hidden sm:inline' : ''}>{label}</span>
     </button>
+  );
+}
+
+function LaunchProfileBar({
+  busy,
+  onCreate,
+  onProfileChange,
+  profiles,
+  selectedProfile,
+  selectedProfileId,
+}: {
+  busy: boolean;
+  onCreate(): void;
+  onProfileChange(event: ChangeEvent<HTMLSelectElement>): void;
+  profiles: TerminalProfileSummary[];
+  selectedProfile: TerminalProfileSummary | null;
+  selectedProfileId: string;
+}) {
+  const createDisabled = busy || profiles.length === 0;
+
+  return (
+    <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+      <label className="flex min-w-0 items-center gap-2 rounded-md border border-white/10 bg-slate-950/45 px-3 py-2 sm:rounded-lg sm:px-4">
+        <span className="shrink-0 text-[11px] uppercase tracking-[0.18em] text-slate-400">
+          启动
+        </span>
+        <select
+          className="min-w-0 flex-1 bg-transparent text-sm text-slate-100 outline-none"
+          disabled={busy || profiles.length === 0}
+          aria-describedby="profile-detail-line"
+          value={selectedProfileId}
+          onChange={onProfileChange}
+        >
+          {profiles.length === 0 ? (
+            <option value="">默认 profile</option>
+          ) : (
+            profiles.map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {formatProfileOptionLabel(profile)}
+              </option>
+            ))
+          )}
+        </select>
+      </label>
+
+      <button
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-12 sm:rounded-lg sm:px-5"
+        disabled={createDisabled}
+        type="button"
+        onClick={onCreate}
+      >
+        <Plus aria-hidden className="h-4 w-4" />
+        <span>新建终端</span>
+      </button>
+
+      <div className="sm:col-span-2" id="profile-detail-line">
+        <ProfileDetailLine profile={selectedProfile} />
+      </div>
+    </div>
+  );
+}
+
+function ProfileDetailLine({
+  profile,
+}: {
+  profile: TerminalProfileSummary | null;
+}) {
+  if (!profile) {
+    return (
+      <p className="text-[11px] leading-4 text-slate-500">
+        还没有可用的启动配置
+      </p>
+    );
+  }
+
+  return (
+    <p className="break-words text-xs leading-5 text-slate-400 sm:text-sm sm:leading-5">
+      {profile.commandDisplay}
+      <span className="px-1 text-slate-600">·</span>
+      {profile.cwd}
+      {profile.description ? (
+        <>
+          <span className="px-1 text-slate-600">·</span>
+          {profile.description}
+        </>
+      ) : null}
+    </p>
   );
 }
 
@@ -781,7 +937,7 @@ function MobileSessionLine({
       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${stateDotClass}`} />
       <span className="min-w-0 flex-1 truncate">
         {activeTerminal
-          ? `${activeTerminal.name} · ${formatTerminalStatus(activeTerminal.status)} · ${activeTerminal.cwd}`
+          ? `${activeTerminal.name} · ${formatTerminalBackend(activeTerminal.backend)} · ${activeTerminal.profileName} · ${formatTerminalStatus(activeTerminal.status)}`
           : 'no terminal selected'}
       </span>
       <span className="shrink-0 tabular-nums">
@@ -804,6 +960,15 @@ function WorkbenchOverview({
   return (
     <div className="flex flex-wrap gap-1.5 text-[11px] leading-none sm:text-xs">
       <OverviewMetric label="终端" value={formatCompactCount(stats.total)} />
+      <OverviewMetric
+        label="配置"
+        tone="accent"
+        value={activeTerminal?.profileName ?? '-'}
+      />
+      <OverviewMetric
+        label="后端"
+        value={activeTerminal ? formatTerminalBackend(activeTerminal.backend) : '-'}
+      />
       <OverviewMetric label="运行" tone="success" value={formatCompactCount(stats.running)} />
       <OverviewMetric label="启动" tone="warning" value={formatCompactCount(stats.starting)} />
       <OverviewMetric label="停止" value={formatCompactCount(stats.stopped)} />
@@ -836,7 +1001,7 @@ function OverviewMetric({
 
   return (
     <span
-      className={`inline-flex min-h-7 min-w-[4.25rem] items-center justify-between gap-1.5 rounded-lg border px-2 ${toneClass}`}
+      className={`inline-flex min-h-7 min-w-[4.25rem] items-center justify-between gap-1.5 rounded-md border px-2 ${toneClass}`}
     >
       <span className="text-slate-400">{label}</span>
       <span className="font-semibold tabular-nums">{value}</span>
@@ -874,6 +1039,14 @@ function formatTerminalStatus(status: TerminalSummary['status']): string {
   }
 }
 
+function formatTerminalBackend(backend: TerminalSummary['backend']): string {
+  return backend === 'client_bridge' ? 'Bridge' : 'PTY';
+}
+
+function formatProfileOptionLabel(profile: TerminalProfileSummary): string {
+  return `${profile.name} · ${profile.commandDisplay}`;
+}
+
 function upsertTerminal(
   terminals: TerminalSummary[],
   nextTerminal: TerminalSummary,
@@ -907,7 +1080,12 @@ function areTerminalSummariesEqual(
 ): boolean {
   return (
     left.id === right.id &&
+    left.backend === right.backend &&
     left.name === right.name &&
+    left.profileId === right.profileId &&
+    left.profileName === right.profileName &&
+    left.commandDisplay === right.commandDisplay &&
+    left.bridgeClientId === right.bridgeClientId &&
     left.status === right.status &&
     left.createdAt === right.createdAt &&
     left.updatedAt === right.updatedAt &&

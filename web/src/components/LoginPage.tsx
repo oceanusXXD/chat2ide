@@ -20,10 +20,10 @@ export function LoginPage({ busy, error, onSubmit }: LoginPageProps) {
         <div className="mb-6 space-y-3">
           <p className="text-xs text-slate-400">chat2ide · 私有远程入口</p>
           <h1 className="text-2xl font-semibold leading-tight text-white sm:text-3xl">
-            解锁 Codex 终端
+            解锁远程终端
           </h1>
           <p className="text-sm leading-6 text-slate-300">
-            输入服务器上配置的 PIN，进入单用户 AI 编程控制台。登录后可从浏览器或手机接管服务器里的 Codex CLI 会话。
+            输入服务器上配置的 PIN，进入单用户 AI 编程控制台。登录后可从浏览器或手机接管 CLI profile，或查看客户端发布的 Bridge 会话。
           </p>
         </div>
 

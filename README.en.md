@@ -1,6 +1,6 @@
 # chat2ide
 
-`chat2ide` is a self-hosted mobile remote terminal for AI coding CLIs. It starts real PTY processes on your server and exposes Codex CLI, Qoder, Claude Code, Cursor Agent, Qwen Code, CodeBuddy, Kimi Code, Aider, and other terminal agents through a browser UI.
+`chat2ide` is a self-hosted mobile remote terminal for AI coding tools. It starts real PTY processes on your server for Codex CLI, Qoder, Claude Code, Cursor Agent, Qwen Code, CodeBuddy, Kimi Code, Aider, and other terminal agents, and it also supports a direct client bridge for IDE plugins or desktop clients that do not expose an independently runnable CLI.
 
 It is built for a narrow use case: you already have an AI coding CLI working on a trusted Linux dev box, VPS, or home server, and you want to check or steer those jobs from a laptop, tablet, or phone.
 
@@ -13,6 +13,23 @@ It is not remote desktop and it is not an online IDE. The core is React, xterm.j
 </p>
 
 The mobile view is not a shrunken desktop terminal. It keeps the workspace status, terminal tabs, real xterm output, and a bottom command composer in one screen for long-running AI coding jobs.
+
+## Current Status
+
+Completed and verified:
+
+- Server-side PTY terminals still work, including multiple profiles, cwd allowlists, input-size limits, output ring-buffer replay, stop, restart, and close.
+- The direct client bridge is implemented. Trusted IDE/plugin/desktop companions without standalone CLIs can connect to `/bridge`, publish their own sessions, and receive browser-forwarded `input`, `resize`, `stop`, `restart`, and `close` control messages.
+- The browser now shows PTY and Bridge sessions through the same terminal tab workflow. Bridge sessions display backend, client name, status, recent output, and bridge-specific controls.
+- Configuration, protocol docs, security notes, user guide, manual test plan, and smoke scripts are updated.
+- Current local verification passed: `npm test`, `npm run smoke:e2e`, `npm run build`, `npm run preflight` with `APP_PIN` / `APP_BRIDGE_TOKEN`, plus a Playwright browser login and Bridge input echo check.
+
+Not done or intentionally out of scope:
+
+- `chat2ide` does not remote-control Cursor, Windsurf, Trae, Lingma, Comate, CodeGeeX, or other GUI/plugin surfaces. Those clients can only appear in `chat2ide` after they implement a companion that publishes sessions through `/bridge`.
+- The repository currently provides the Bridge protocol and a smoke client, not ready-made companion SDKs for vendor IDE plugins.
+- Multi-user collaboration, enterprise audit, command sandboxing, fine-grained Linux permission isolation, and persistent full terminal history are not included.
+- Platform profile presets, push notifications, and more vendor-specific smoke scripts remain follow-up enhancements.
 
 ## Search Fit
 
@@ -47,7 +64,7 @@ This repository is meant for people looking for:
 | Remote access | Cloudflare Tunnel | Forwards a public HTTPS hostname to the local `127.0.0.1:3000` service |
 | State | Process memory and ring buffers | Keeps login sessions, PTY process handles, and recent-output replay |
 
-The default command is `codex`. To use another AI coding tool, point `CODEX_COMMAND` at a real terminal command and configure `CODEX_ARGS` as needed. `chat2ide` does not call vendor private APIs; it moves terminal bytes between the browser, WebSocket, PTY, and CLI process.
+The default command is `codex`. To use another AI coding tool, point `CODEX_COMMAND` at a real terminal command and configure `CODEX_ARGS` as needed. For multiple CLI entrypoints, use `TERMINAL_PROFILES`. If a product has no standalone CLI, write a trusted IDE/plugin/desktop companion that connects to `/bridge` with `APP_BRIDGE_TOKEN` or an `APP_BRIDGE_CLIENTS` scoped token, publishes its own sessions, and receives mobile input/resize/control messages.
 
 ## AI Coding Platform Support
 
@@ -77,7 +94,7 @@ Before calling an integration ready on a new host, verify four things: the comma
 
 ### CLI Works, IDEs And Apps Are Indirect
 
-When a vendor ships a CLI, desktop IDE, browser workspace, plugin, and mobile app, `chat2ide` only controls the server-side CLI. IDE windows, plugin sidebars, vendor cloud workspaces, and mobile-app sessions are not remote-controlled by this project today.
+When a vendor ships a CLI, desktop IDE, browser workspace, plugin, and mobile app, `chat2ide` prefers the server-side CLI. IDE windows, plugin sidebars, vendor cloud workspaces, and mobile-app sessions are only exposed when a trusted companion explicitly publishes them through `/bridge`.
 
 | Ecosystem / product | CLI path | IDE / app status |
 | --- | --- | --- |
@@ -85,7 +102,7 @@ When a vendor ships a CLI, desktop IDE, browser workspace, plugin, and mobile ap
 | Windsurf / Devin Desktop | Use `bash` / `powershell` or another CLI agent beside it | Cascade, desktop windows, and IDE state are not controlled |
 | Trae / MarsCode | `trae-cli` can be used directly | Trae IDE, MarsCode cloud workspaces, and plugin experiences are not controlled |
 | Qoder | `qodercli` can be used directly | Qoder IDE / app surfaces are not controlled; use the CLI for terminal control |
-| Qwen / Alibaba Lingma | `qwen` can be used directly | Lingma IDE, VS Code / JetBrains plugins, and Agent panels are waiting development |
+| Qwen / Alibaba Lingma | `qwen` can be used directly | Lingma IDE, VS Code / JetBrains plugins, and Agent panels need a companion to use Bridge |
 | Tencent CodeBuddy | `codebuddy` or `tcb ai -a codebuddy` can be used directly | CodeBuddy IDE, plugins, and WorkBuddy mini app are not controlled |
 | Huawei CodeArts | `codearts` can be used directly | CodeArts Snap, IDE plugins, and console workspaces are not controlled |
 | Kimi Code | `kimi` can be used directly | Kimi Code VS Code extension or app sessions are not controlled |
@@ -97,10 +114,10 @@ These tools are common in China-market development workflows, but not every prod
 
 | Platform | Current status | Notes | Reference |
 | --- | --- | --- | --- |
-| Alibaba Lingma IDE / plugins | Waiting development / indirect | Public docs focus on Lingma IDE, VS Code / JetBrains plugins, and Agent Mode. No standalone terminal CLI is shown there as a `CODEX_COMMAND` target. Use Qoder or Qwen Code for Alibaba-family terminal workflows. | [Lingma IDE quick start](https://help.aliyun.com/zh/lingma/user-guide/lingma-ide-get-started) |
-| Baidu Comate / Wenxin Kuaima | Waiting development / indirect | Public docs describe Comate Agent inside the Comate plugin or Comate AI IDE. No standalone CLI is shown there as a direct `CODEX_COMMAND` target. | [Comate Agent overview](https://cloud.baidu.com/doc/COMATE/s/9mm5qvpb4) |
+| Alibaba Lingma IDE / plugins | Bridge companion / indirect | Public docs focus on Lingma IDE, VS Code / JetBrains plugins, and Agent Mode. No standalone terminal CLI is shown there as a `CODEX_COMMAND` target; a plugin companion can publish sessions through `/bridge`. Use Qoder or Qwen Code for Alibaba-family terminal workflows. | [Lingma IDE quick start](https://help.aliyun.com/zh/lingma/user-guide/lingma-ide-get-started) |
+| Baidu Comate / Wenxin Kuaima | Bridge companion / indirect | Public docs describe Comate Agent inside the Comate plugin or Comate AI IDE. No standalone CLI is shown there as a direct `CODEX_COMMAND` target; a client-side companion can publish sessions through `/bridge`. | [Comate Agent overview](https://cloud.baidu.com/doc/COMATE/s/9mm5qvpb4) |
 | MarsCode / Trae IDE | Indirect, CLI path is `trae-agent` | MarsCode / Trae IDE are IDE, cloud workspace, or plugin experiences. Use `trae-cli` when terminal control is required. | [MarsCode](https://www.marscode.com/home) |
-| CodeGeeX | Waiting development / indirect | The official product is centered on IDE plugins and enterprise editions. Public docs do not show an official terminal-native coding-agent CLI. | [CodeGeeX](https://www.codegeex.cn/) |
+| CodeGeeX | Bridge companion / indirect | The official product is centered on IDE plugins and enterprise editions. Public docs do not show an official terminal-native coding-agent CLI; a plugin companion can publish sessions through `/bridge`. | [CodeGeeX](https://www.codegeex.cn/) |
 | CodeBuddy IDE / plugins | Indirect, CLI path is `codebuddy` | GUI and plugin state are not remote-controlled by `chat2ide`; use CodeBuddy Code CLI for direct PTY integration. | [CodeBuddy IDE introduction](https://copilot.tencent.com/docs/ide/Introduction) |
 | CodeArts Snap / IDE plugins | Indirect, CLI path is `codearts` | IDE assistants and plugins are not remote-controlled by `chat2ide`; use CodeArts Agent / Madao CLI for direct PTY integration. | [CodeArts Agent CLI](https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0001.html) |
 
@@ -111,6 +128,18 @@ Common configurations:
 CODEX_COMMAND=codex
 CODEX_ARGS=[]
 CODEX_CWD=/srv/your-project
+```
+
+```dotenv
+# Direct client bridge for products without a standalone CLI
+APP_BRIDGE_TOKEN=bridge-token-32-bytes-minimum-dev-123456
+# Prefer scoped tokens for multiple production companions
+# APP_BRIDGE_CLIENTS=[{"id":"desktop-ide","name":"Desktop IDE","token":"replace-with-32-byte-random-client-token"}]
+```
+
+```bash
+APP_BRIDGE_TOKEN=bridge-token-32-bytes-minimum-dev-123456 node scripts/bridge-smoke-client.mjs
+npm run build && npm run smoke:e2e
 ```
 
 ```dotenv
@@ -211,7 +240,7 @@ CODEX_ARGS=["session"]
 CODEX_CWD=/srv/your-project
 ```
 
-If a platform only exposes a desktop GUI, browser workspace, or IDE plugin and has no public terminal CLI, do not set it directly as `CODEX_COMMAND`. Use `bash`/`powershell` as the command instead, then run tests, git, deployment scripts, or another real CLI agent from the mobile terminal.
+If a platform only exposes a desktop GUI, browser workspace, or IDE plugin and has no public terminal CLI, do not set it directly as `CODEX_COMMAND`. Use `/bridge` when you can build a trusted companion; otherwise use `bash`/`powershell` as the command and run tests, git, deployment scripts, or another real CLI agent from the mobile terminal.
 
 ## What It Is Not
 
@@ -405,7 +434,7 @@ When a terminal is created, the server stores a `starting` session first. The PT
 These are planned improvements, not current guarantees:
 
 - Provider presets for Codex, Qoder, CodeBuddy, CodeArts Agent, Kimi Code, Qwen Code, Claude Code, Gemini CLI, Cursor Agent, and other common terminal agents.
-- China-market platform follow-up: if Lingma, Comate, MarsCode, CodeGeeX, or similar tools publish standalone terminal CLIs, add them as direct presets.
+- China-market platform follow-up: if Lingma, Comate, MarsCode, CodeGeeX, or similar tools publish standalone terminal CLIs, add PTY profiles; if they only expose plugins or desktop clients, add Bridge companion examples.
 - A Qoder smoke-test guide or script that checks install, login, startup, and terminal output.
 - Wrapper templates such as `scripts/run-qoder.sh` and `scripts/run-claude.sh` for parameterized agent startup.
 - Optional notifications for completed tasks, crashed terminals, and unread background output.

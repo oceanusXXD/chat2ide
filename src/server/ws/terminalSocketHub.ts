@@ -1,4 +1,5 @@
 import http from 'http';
+import { Duplex } from 'stream';
 
 import * as cookie from 'cookie';
 import { WebSocket, WebSocketServer } from 'ws';
@@ -9,7 +10,8 @@ import {
   parseClientWsMessage,
 } from '../../shared/protocol';
 import { SessionManager } from '../auth/sessionManager';
-import { TerminalManagerEvent, TerminalSessionManager } from '../terminal/terminalSessionManager';
+import { TerminalManagerEvent } from '../terminal/terminalSessionManager';
+import { TerminalSessionRouter } from '../terminal/terminalSessionRouter';
 
 interface AuthenticatedSocket {
   socket: WebSocket;
@@ -19,6 +21,7 @@ interface AuthenticatedSocket {
 
 export interface TerminalSocketHubOptions {
   cookieName: string;
+  maxBufferedBytes: number;
   maxPayloadBytes: number;
   publicOrigin?: string;
 }
@@ -27,17 +30,16 @@ export class TerminalSocketHub {
   private readonly wsServer: WebSocketServer;
   private readonly clients = new Set<AuthenticatedSocket>();
   private readonly unsubscribeTerminalEvents: () => void;
+  private readonly path = '/ws';
 
   constructor(
-    server: http.Server,
     private readonly sessions: SessionManager,
-    private readonly terminals: TerminalSessionManager,
+    private readonly terminals: TerminalSessionRouter,
     private readonly options: TerminalSocketHubOptions,
   ) {
     this.wsServer = new WebSocketServer({
       maxPayload: this.options.maxPayloadBytes,
-      server,
-      path: '/ws',
+      noServer: true,
     });
     this.unsubscribeTerminalEvents = this.terminals.subscribe((event) => {
       this.broadcastTerminalEvent(event);
@@ -45,6 +47,20 @@ export class TerminalSocketHub {
     this.wsServer.on('connection', (socket, request) => {
       this.handleConnection(socket, request);
     });
+  }
+
+  handleUpgrade(
+    request: http.IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+  ): boolean {
+    if (new URL(request.url ?? '/', 'http://localhost').pathname !== this.path) {
+      return false;
+    }
+    this.wsServer.handleUpgrade(request, socket, head, (webSocket) => {
+      this.wsServer.emit('connection', webSocket, request);
+    });
+    return true;
   }
 
   dispose(): void {
@@ -233,6 +249,10 @@ export class TerminalSocketHub {
 
   private send(socket: WebSocket, message: ServerWsMessage): void {
     if (socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    if (socket.bufferedAmount > this.options.maxBufferedBytes) {
+      socket.close(1013, 'send buffer exceeded');
       return;
     }
     socket.send(JSON.stringify(message));

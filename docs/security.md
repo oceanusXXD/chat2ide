@@ -38,11 +38,22 @@
 
 如果设置 `APP_PUBLIC_ORIGIN`，WebSocket 请求的 `Origin` 必须完全匹配。
 
+### Direct Client Bridge Token
+
+`/bridge` 默认关闭。设置 `APP_BRIDGE_TOKEN` 或 `APP_BRIDGE_CLIENTS` 后，IDE 插件、桌面客户端或本机 companion 才能用 `Authorization: Bearer <token>` 连接。
+
+这个 token 是高权限客户端凭据，且至少需要 32 字节：持有者可以向移动端发布 bridge session，并接收来自手机/浏览器的输入、resize、停止、重启和关闭控制。它不等同于浏览器 PIN，也不应该给不受信任的网页或公开前端代码使用。
+
+如果要同时接入多个可信 companion，优先使用 `APP_BRIDGE_CLIENTS` 的 scoped token。这样每个 companion 都有固定 `clientId`，能降低共享 token 被误用后互相冒名的风险。
+
+Bridge 会话受 `APP_BRIDGE_MAX_SESSIONS` 限制，已停止会话会按 `APP_BRIDGE_STOPPED_SESSION_TTL_MINUTES` 清理。在线 `clientId` 不能被第二个连接抢占，避免一个 token 持有者误接管另一个在线 companion 的输入流。
+
 ### 资源上限
 
 - `TERMINAL_MAX_SESSIONS` 限制同时存在的 PTY 终端数量。
 - `TERMINAL_MAX_INPUT_BYTES` 限制单次写入 PTY 的输入大小。
 - `APP_WS_MAX_MESSAGE_BYTES` 限制 WebSocket 单条消息大小。
+- `APP_WS_MAX_BUFFERED_BYTES` 限制单个 WebSocket 连接的待发送缓冲。
 - 登录失败记录会在 `APP_LOGIN_ATTEMPT_WINDOW_SECONDS` 后过期，避免长期运行时无界增长。
 
 这些限制用于防误用和降低暴露入口被滥用时的资源消耗，不是权限隔离或命令沙箱。
@@ -52,10 +63,12 @@
 - 始终监听 `127.0.0.1`，不要直接绑定公网地址。
 - 始终设置 `APP_PUBLIC_ORIGIN`。
 - Cloudflare Tunnel 后保持 `APP_TRUST_PROXY=1`。
+- 如果启用 `/bridge`，使用 32 字节以上高熵 `APP_BRIDGE_TOKEN` 或 `APP_BRIDGE_CLIENTS`，只给受信任的本机/IDE companion，并优先通过 localhost、专用内网或有 TLS 的私有入口连接。
 - 用最小权限系统账户运行。
-- 把 `CODEX_CWD` 限制到具体项目目录。
+- 把 `CODEX_CWD` 和 `TERMINAL_ALLOWED_CWD_ROOTS` 限制到具体项目目录。
 - 根据服务器规格设置 `TERMINAL_MAX_SESSIONS`，不要让单用户入口无限创建 PTY。
 - 保护 `.env` 文件，尤其是 PIN hash 和运行配置。
+- 保护 `APP_BRIDGE_TOKEN`；泄露后应立即轮换并重启服务。
 - 保护服务器 SSH 和 Cloudflare 账户。
 
 ## 不做的事
@@ -70,6 +83,8 @@
 ## 风险理解
 
 如果攻击者拿到 PIN 或 session cookie，就能进入远程终端。进入后能够执行的范围取决于运行 `chat2ide` 的系统账户权限。
+
+如果攻击者拿到全局 `APP_BRIDGE_TOKEN`，就能伪装成受信任客户端发布会话，并接收移动端输入。如果攻击者拿到 `APP_BRIDGE_CLIENTS` 中某个客户端 token，就能冒用该客户端。不要把 `/bridge` 作为公开、无 TLS、无网络边界的接口暴露。
 
 因此，安全边界应放在三层：
 
